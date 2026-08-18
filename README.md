@@ -1,150 +1,16 @@
-# 취준 회고 저널 (JobRetro)
+# React + Vite
 
-## 1. 프로젝트 개요
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-**한 줄 소개**
-지원 현황을 기록하고, 쌓인 회고 데이터를 AI가 분석해 본인만의 탈락/합격 패턴을 짚어주는 취준생 전용 회고 도구
+Currently, two official plugins are available:
 
-**개발 기간**: 2026.MM.DD ~ 2026.MM.DD (10일)
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-**개발 인원**: 1인 (개인 프로젝트)
+## React Compiler
 
----
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## 2. 문제 정의
+## Expanding the ESLint configuration
 
-### 대상 사용자
-여러 회사에 동시 지원 중이며, 지원 현황은 기록하지만 반복되는 탈락 패턴은 스스로 분석하지 못하는 취준생
-
-**페르소나**: 박지원, 26세, 신입 공채 준비 3개월차
-- 사람인·잡코리아·원티드 등 여러 플랫폼에 동시 지원 중
-- 서류는 통과하는데 면접에서 반복적으로 떨어지는 느낌은 있지만, 정확히 어떤 지점에서 패턴이 반복되는지 스스로 파악하지 못함
-
-### 해결하고자 하는 문제
-- 기존 채용 플랫폼(사람인, 잡코리아 등)은 AI 추천/매칭 기능은 있지만, **본인의 지원 이력을 회고하고 패턴을 분석해주는 기능은 없음**
-- 자소설닷컴, 링커리어 등은 지원 현황 기록·마감 알림 기능을 일부 제공하지만, 이는 자사 플랫폼을 통한 지원에 한정되며 **탈락 사유에 대한 회고나 분석 기능은 부재**
-- 취준생들은 결국 엑셀/노션으로 수기 관리하며, "왜 계속 떨어지는지"에 대한 답은 스스로 찾기 어려움
-
-### 시장 조사 요약
-| 서비스 | 제공 기능 | 한계 |
-|---|---|---|
-| 사람인/잡코리아 | AI 매칭 추천 | 회사가 구직자를 추천받는 방향, 회고 기능 없음 |
-| 자소설닷컴 | 지원 현황 스케줄러 | 자사 플랫폼 지원 건에 한정 |
-| 링커리어 | 공고 캘린더/알림 | 마감일 관리 중심, 분석 기능 없음 |
-
-→ **"본인의 지원 데이터를 회고하고 패턴을 분석"하는 영역은 시장에 비어 있음**
-
----
-
-## 3. 왜 이 프로젝트를 하려고 하는가
-
-- 본인이 현재 취준생으로서 여러 회사에 동시 지원하며 직접 겪고 있는 문제에서 출발한 프로젝트임
-- 지원 현황을 엑셀로 관리하면서도, "이번 달에 왜 계속 최종에서 떨어질까"에 대한 답을 스스로 정리하지 못한 경험이 반복됨
-- 시중 채용 플랫폼(사람인, 잡코리아, 자소설닷컴, 링커리어 등)을 조사한 결과, 지원 현황 기록·공고 추천·자소서 관리 기능은 이미 포화 상태이나, **본인의 데이터를 기반으로 회고하고 패턴을 짚어주는 기능은 존재하지 않음**을 확인함
-- 단순히 새로운 아이디어를 찾기보다, 실제 겪은 불편함과 시장 조사를 통해 검증된 빈 영역을 해결하는 프로젝트를 만들고자 함
-- 동시에 이 프로젝트는 서비스 기획부터 데이터 설계, LLM을 실제 서비스에 통합하는 경험(구조화 추출, 데이터 기반 리포트 생성)까지 직접 다뤄보며 "AI를 활용한 서비스 기획" 역량을 쌓을 수 있는 주제로 선정함
-
-## 4. 기대되는 결과
-
-**사용자 관점**
-- 여러 플랫폼에 흩어진 지원 이력을 한곳에서 관리할 수 있음
-- 매번 탈락 이유를 막연하게 느끼는 대신, 누적된 회고 데이터를 통해 본인의 약점 패턴을 구체적으로 인지할 수 있음
-- "다음 면접에서 무엇을 더 준비해야 하는지"에 대한 실질적인 단서를 얻을 수 있음
-
-**기획자(본인) 관점**
-- 화면(React) → 데이터 저장/조회(Supabase) → AI 분석(Claude API)까지 이어지는 서비스 전체 흐름을 직접 기획하고 완성한 경험 확보
-- LLM을 단순 챗봇이 아니라, "비정형 데이터의 구조화"와 "정량 데이터의 자연어 해석"이라는 두 가지 역할로 서비스에 통합해본 경험 확보
-- AI 코딩 에이전트를 활용해 요구사항을 전달하고 결과를 검토·수정하는 개발 프로세스를 경험
-- 문제 정의 → 시장 조사 → 차별화 포인트 도출 → 기능 설계 → 실제 구현까지 이어지는 기획 프로세스를 처음부터 끝까지 직접 수행한 결과물 확보
-- 실제 배포까지 완료해, 포트폴리오로 즉시 시연 가능한 결과물 확보
-
----
-
-## 5. 핵심 기능 (MVP)
-
-### 핵심 기능 1: 지원 카드 등록/수정/조회
-- 회사명, 직무, 지원일, 공고 링크, 현재 단계(지원함/서류/면접/최종) 관리
-- 기본 CRUD
-
-### 핵심 기능 2: 자연어 회고 입력 → AI 구조화
-- 사용자가 자연어로 회고 작성 (예: "오늘 카카오 1차 면접 봤는데 협업 경험 질문에서 대답이 모호했어")
-- Claude API가 회사명/단계/약점 태그를 자동으로 추출해 구조화된 데이터로 저장
-- AI 역할: 비정형 텍스트 → 정형 데이터 변환
-
-### 핵심 기능 3: AI 패턴 분석 리포트
-- 누적된 회고 데이터를 기반으로 단계별 통과율, 태그 빈도 등 통계를 **백엔드에서 정확히 계산**
-- Claude API는 계산된 통계를 **자연스러운 문장으로 해석**하는 역할만 담당 (숫자 계산은 AI에게 맡기지 않음 — 환각 방지)
-- 예: "최종면접 통과율이 1차면접 대비 눈에 띄게 낮고, 회고에 '지원동기' 관련 아쉬움이 반복해서 언급되고 있어요"
-
-### 제외 기능 (백로그)
-- 이메일 자동 파싱 및 상태 연동
-- 캘린더 UI (D-day 리스트로 대체)
-- 소셜/공유 기능
-- 자소서 문항 저장 및 재사용
-- 회사명 매칭 실패 시 확인 UI (MVP에서는 AI가 애매하면 "기타"로 저장 후 사용자가 직접 수정)
-- 결제, 관리자 기능
-
----
-
-## 6. 기술 스택
-
-| 영역 | 기술 | 선택 이유 |
-|---|---|---|
-| Frontend | React | 컴포넌트 기반 UI 구성, 상태 관리 용이 |
-| DB + 인증 | Supabase (PostgreSQL 기반) | 이전 사용 경험 있어 학습 부담이 낮고, DB·인증·API를 함께 제공해 별도 백엔드 서버 없이 구현 가능 |
-| AI | Claude API (Anthropic) | 회고 텍스트 구조화(JSON 추출) 및 통계 기반 자연어 리포트 생성에 활용, React에서 직접 호출 |
-| 배포 | Vercel | React 프로젝트 배포만으로 서비스 완성 (별도 백엔드 서버 배포 불필요) |
-
-> 개발 역량 어필보다 서비스 기획/기능 완성도에 집중하기 위해, 별도 백엔드 서버(Spring Boot 등) 없이 Supabase로 데이터 저장·조회·인증을 처리하는 구조로 단순화함
-
----
-
-## 7. 시스템 아키텍처
-
-```
-[React Frontend]
-      ↓ Supabase SDK              ↓ Claude API 직접 호출
-[Supabase (DB + 인증)]      [Anthropic API]
-```
-
-React 앱이 Supabase SDK로 데이터를 직접 저장/조회하고, 회고 구조화·패턴 분석이 필요한 시점에 Claude API를 직접 호출하는 단순한 구조. 별도 백엔드 서버 없이 프론트엔드가 두 외부 서비스(Supabase, Anthropic API)와 직접 통신함.
-
----
-
-## 8. ERD (요약)
-
-```
-User (사용자)
-Application (지원 카드) — User 1:N
-StageResult (단계별 회고 기록) — Application 1:N
-AnalysisReport (AI 분석 결과) — User 1:N
-```
-
-*(상세 ERD는 별도 문서 참고)*
-
----
-
-## 9. 개발 일정 (10일)
-
-| Day | 작업 |
-|---|---|
-| 1 | Supabase 테이블 설계·생성, ERD/플로우차트/아키텍처 설계, React 프로젝트 초기 세팅 |
-| 2 | Supabase 인증 연동 (회원가입/로그인) |
-| 3 | 지원 카드 등록/수정/조회 화면 + Supabase 연동 |
-| 4 | 회고 기록 입력 화면 + Supabase 저장 (기본형, AI 연동 전) |
-| 5 | Claude API 연동 — 구조화 프롬프트 작업 및 테스트 |
-| 6 | 회고 입력 화면에 AI 구조화 결과 반영 |
-| 7 | 통계 계산 로직(프론트/유틸 함수) + AI 분석 리포트 프롬프트 연동 |
-| 8 | 리포트 화면 UI + 전체 기능 통합 테스트 |
-| 9 | Vercel 배포 + 버그 수정 |
-| 10 | README 최종화, 개발 과정/난제 정리 |
-
----
-
-## 10. 개발 중 겪은 난제 및 해결 방안
-*(개발 진행하며 이 섹션 업데이트 예정)*
-
----
-
-## 11. 실행 방법
-*(로컬 실행 방법 및 배포 URL — 추후 업데이트)*
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
