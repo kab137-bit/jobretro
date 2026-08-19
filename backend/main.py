@@ -131,6 +131,14 @@ SYSTEM_PROMPT = """당신은 취준생의 면접/서류 회고를 구조화하�
 
 반드시 JSON 형식으로만 응답하세요. 다른 설명은 붙이지 마세요."""
 
+def map_status_from_reflection(stage, result):
+    if result == "불합격":
+        return "불합격"
+    if stage == "서류" and result == "합격":
+        return "면접중"
+    if stage == "최종면접" and result == "합격":
+        return "최종합격"
+    return None
 
 class ReflectionCreate(BaseModel):
     application_id: str
@@ -180,6 +188,11 @@ def create_reflection(data: ReflectionCreate, user_id: str = Depends(get_current
         })
         .execute()
     )
+
+    new_status = map_status_from_reflection(parsed.get("stage"), parsed.get("result"))
+    if new_status:
+        supabase.table("applications").update({"status": new_status}).eq("id", data.application_id).execute()
+
     return result.data
 
 
@@ -196,6 +209,7 @@ class ReflectionCreate(BaseModel):
 
 class ReflectionUpdate(BaseModel):
     raw_text: str
+    application_id: str
 
 @app.put("/reflections/{reflection_id}")
 def update_reflection(reflection_id: str, data: ReflectionUpdate, user_id: str = Depends(get_current_user)):
@@ -227,6 +241,11 @@ def update_reflection(reflection_id: str, data: ReflectionUpdate, user_id: str =
         .eq("id", reflection_id)
         .execute()
     )
+
+    new_status = map_status_from_reflection(parsed.get("stage"), parsed.get("result"))
+    if new_status:
+        supabase.table("applications").update({"status": new_status}).eq("id", data.application_id).execute()
+
     return result.data
 
 @app.get("/report")

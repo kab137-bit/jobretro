@@ -400,6 +400,7 @@ function App() {
       setOpenFormId(null)
       setOpenListId(applicationId)
       await fetchReflectionsForApp(applicationId)
+      await fetchApplications()
     } catch (err) {
       alert('저장 중 오류가 발생했어요: ' + err.message)
     } finally {
@@ -434,12 +435,13 @@ function App() {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raw_text: editReflectionText }),
+        body: JSON.stringify({ raw_text: editReflectionText, application_id: applicationId }),
       })
       if (!res.ok) throw new Error('수정 실패')
 
       setEditingReflectionId(null)
       await fetchReflectionsForApp(applicationId)
+      await fetchApplications()
     } catch (err) {
       alert('수정 중 오류가 발생했어요: ' + err.message)
     } finally {
