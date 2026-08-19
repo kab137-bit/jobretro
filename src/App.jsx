@@ -37,8 +37,11 @@ function App() {
   const [reflectionsByApp, setReflectionsByApp] = useState({})
   const [report, setReport] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
+  const [companyInsight, setCompanyInsight] = useState(null)
+  const [companyInsightLoading, setCompanyInsightLoading] = useState(false)
+  const [insightAppId, setInsightAppId] = useState(null)
   const [checkedItems, setCheckedItems] = useState({})
-    const [rehearsal, setRehearsal] = useState(null)
+  const [rehearsal, setRehearsal] = useState(null)
   const [rehearsalAnswer, setRehearsalAnswer] = useState('')
   const [followUpQuestion, setFollowUpQuestion] = useState(null)
   const [followUpAnswer, setFollowUpAnswer] = useState('')
@@ -353,6 +356,23 @@ function App() {
       alert('리포트를 불러오는 중 오류가 발생했어요')
     } finally {
       setReportLoading(false)
+    }
+  }
+
+  async function viewCompanyInsight(app) {
+    setInsightAppId(app.id)
+    setCompanyInsightLoading(true)
+    setCompanyInsight(null)
+    try {
+      const res = await authFetch(
+        `${import.meta.env.VITE_API_URL}/company-insights/${encodeURIComponent(app.company_name)}`
+      )
+      const data = await res.json()
+      setCompanyInsight(data)
+    } catch (err) {
+      alert('인사이트를 불러오는 중 오류가 발생했어요')
+    } finally {
+      setCompanyInsightLoading(false)
     }
   }
 
@@ -752,6 +772,14 @@ function App() {
                     >
                       회고 {reflections.length}개
                     </button>
+
+                    <button
+                      type="button"
+                      className="text-btn insight-btn"
+                      onClick={() => viewCompanyInsight(app)}
+                    >
+                      이 회사 지원자 인사이트
+                    </button>
                     <button
                       type="button"
                       className="reflect-btn"
@@ -820,6 +848,33 @@ function App() {
                           )}
                         </div>
                       ))
+                    )}
+                  </div>
+                )}
+
+                {insightAppId === app.id && (
+                  <div className="company-insight-box">
+                    {companyInsightLoading ? (
+                      <p className="insight-loading">다른 지원자 데이터를 모으는 중...</p>
+                    ) : companyInsight?.enough_data ? (
+                      <>
+                        <p className="insight-header">
+                          {app.company_name} 지원자 {companyInsight.applicant_count}명의 공통 경향
+                        </p>
+                        <p>{companyInsight.summary}</p>
+                        {companyInsight.common_questions && companyInsight.common_questions.length > 0 && (
+                          <div className="common-questions">
+                            <p className="common-q-label">자주 나온 질문 유형</p>
+                            <ul>
+                              {companyInsight.common_questions.map((q, i) => (
+                                <li key={i}>{q}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="insight-empty">{companyInsight?.message}</p>
                     )}
                   </div>
                 )}

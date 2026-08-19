@@ -757,3 +757,56 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+.insight-btn {
+  color: #8A6D00;
+}
+
+.company-insight-box {
+  padding: 14px 20px;
+  border-top: 1px dashed #ECE9DE;
+  background: #F4F1E6;
+}
+
+.insight-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 6px;
+}
+
+.insight-loading, .insight-empty {
+  color: #6B7280;
+  font-size: 13px;
+  margin: 0;
+}
+
+.company-insight-box p:not(.insight-header):not(.insight-loading):not(.insight-empty) {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.common-questions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #DDD8C8;
+}
+
+.common-q-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 6px;
+}
+
+.common-questions ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.common-questions li {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 4px;
+}

@@ -431,3 +431,100 @@ STAR 기법(상황-과제-행동-결과) 관점에서 두 답변을 종합해 �
     }).eq("id", data.rehearsal_id).execute()
 
     return {"feedback": feedback}
+
+@app.get("/company-insights/{company_name}")
+def get_company_insights(company_name: str, user_id: str = Depends(get_current_user)):
+    matching_apps = (
+        supabase.table("applications")
+        .select("id, user_id")
+        .eq("company_name", company_name)
+        .execute()
+        .data
+    )
+
+    if not matching_apps:
+        return {"enough_data": False, "message": "이 회사에 대한 데이터가 아직 없어요."}
+
+    unique_users = set(a["user_id"] for a in matching_apps)
+    if len(unique_users) < 2:
+        return {
+            "enough_data": False,
+            "message": "아직 이 회사 지원자가 본인뿐이에요. 다른 사용자 데이터가 쌓이면 인사이트를 볼 수 있어요.",
+        }
+
+    app_ids = [a["id"] for a in matching_apps]
+    reflections = (
+        supabase.table("stage_results")
+        .select("stage, result, reason_tags, raw_text")
+        .in_("application_id", app_ids)
+        .execute()
+        .data
+    )
+
+    if len(reflections) < 3:
+        return {"enough_data": False, "message": "아직 회고 데이터가 충분하지 않아요."}
+
+    stage_counts = {}
+    result_counts = {}
+    tag_counts = {}
+
+    for r in reflections:
+        stage = r.get("stage") or "기타"
+        result = r.get("result") or "미정"
+        stage_counts[stage] = stage_counts.get(stage, 0) + 1
+        result_counts[result] = result_counts.get(result, 0) + 1
+        for t in (r.get("reason_tags") or "").split(","):
+            t = t.strip()
+            if t:
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+
+        raw_texts = [r["raw_text"] for r in reflections if r.get("raw_text")]
+    combined_texts = "\n\n".join([f"[회고 {i+1}] {t}" for i, t in enumerate(raw_texts)])
+
+    stats_text = f"""- 지원자 수: {len(unique_users)}명 (본인 포함)
+- 회고 수: {len(reflections)}건
+- 단계별 회고 분포: {stage_counts}
+- 결과별 분포: {result_counts}
+- 자주 언급된 약점 태그: {tag_counts}"""
+
+    prompt = f"""아래는 '{company_name}'에 지원한 여러 명의 익명화된 면접 회고 원문입니다.
+
+[통계]
+{stats_text}
+
+[회고 원문 모음]
+{combined_texts}
+
+이 회고들을 분석해서 두 가지를 작성하세요:
+
+1. common_questions: 여러 회고에서 반복적으로 언급된 실제 질문이나 질문 유형을 2~4개 뽑아주세요. 회고 원문에 나온 표현을 최대한 살려서 작성하세요.
+2. summary: 이 회사 지원자들의 공통 경향을 2~3문장으로 요약하세요. 개인을 특정할 수 있는 표현은 쓰지 말고 "지원자들은 ~하는 경향이 있어요" 같은 집단 관점으로 서술하세요.
+
+반드시 아래와 정확히 같은 키 이름의 JSON으로만 응답하세요.
+{{"common_questions": ["...", "..."], "summary": "..."}}"""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="인사이트 생성 실패")
+
+    ai_result = response.json()
+    parsed = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+
+    return {
+        "enough_data": True,
+        "applicant_count": len(unique_users),
+        "summary": parsed.get("summary", ""),
+        "common_questions": parsed.get("common_questions", []),
+        "stats": {
+            "stage_counts": stage_counts,
+            "result_counts": result_counts,
+            "tag_counts": tag_counts,
+        },
+    }
