@@ -14,6 +14,8 @@ function App() {
   const [error, setError] = useState(null)
 
   const [companyName, setCompanyName] = useState('')
+  const [companySuggestions, setCompanySuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [jobPostUrl, setJobPostUrl] = useState('')
   const [position, setPosition] = useState('')
   const [applyDate, setApplyDate] = useState('')
@@ -40,6 +42,7 @@ function App() {
   const [companyInsight, setCompanyInsight] = useState(null)
   const [companyInsightLoading, setCompanyInsightLoading] = useState(false)
   const [insightAppId, setInsightAppId] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
   const [rehearsalContext, setRehearsalContext] = useState(null)
   const [positionInsight, setPositionInsight] = useState(null)
   const [positionInsightLoading, setPositionInsightLoading] = useState(false)
@@ -262,6 +265,24 @@ function App() {
     init()
   }, [session])
 
+  async function handleCompanyNameChange(value) {
+    setCompanyName(value)
+    if (value.trim().length < 1) {
+      setCompanySuggestions([])
+      return
+    }
+    try {
+      const res = await authFetch(
+        `${import.meta.env.VITE_API_URL}/companies/suggest?q=${encodeURIComponent(value)}`
+      )
+      const data = await res.json()
+      setCompanySuggestions(data)
+      setShowSuggestions(true)
+    } catch (err) {
+      // 추천 실패는 조용히 무시 (핵심 기능 아님)
+    }
+  }
+  
   async function handleSubmit(e) {
     e.preventDefault()
     if (!companyName.trim()) return
@@ -670,13 +691,32 @@ function App() {
 
       <form className="add-form" onSubmit={handleSubmit}>
         <div className="form-row">
-          <input
-            type="text"
-            placeholder="회사명 (필수)"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            required
-          />
+          <div className="company-input-wrapper">
+            <input
+              type="text"
+              placeholder="회사명 (필수)"
+              value={companyName}
+              onChange={(e) => handleCompanyNameChange(e.target.value)}
+              onFocus={() => companySuggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              required
+            />
+            {showSuggestions && companySuggestions.length > 0 && (
+              <ul className="company-suggestions">
+                {companySuggestions.map((name) => (
+                  <li
+                    key={name}
+                    onMouseDown={() => {
+                      setCompanyName(name)
+                      setShowSuggestions(false)
+                    }}
+                  >
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <input
             type="text"
             placeholder="직무"
@@ -808,12 +848,6 @@ function App() {
                       <option value="최종합격">최종합격</option>
                       <option value="불합격">불합격</option>
                     </select>
-                    <button type="button" className="text-btn" onClick={() => startEdit(app)}>
-                      수정
-                    </button>
-                    <button type="button" className="text-btn danger" onClick={() => handleDeleteApplication(app.id)}>
-                      삭제
-                    </button>
                     <button
                       type="button"
                       className="text-btn"
@@ -823,24 +857,6 @@ function App() {
                     >
                       회고 {reflections.length}개
                     </button>
-
-                    <button
-                      type="button"
-                      className="text-btn insight-btn"
-                      onClick={() => viewCompanyInsight(app)}
-                    >
-                      이 회사 지원자 인사이트
-                    </button>
-                    {app.position && (
-                      <button
-                        type="button"
-                        className="text-btn insight-btn"
-                        onClick={() => viewPositionInsight(app)}
-                      >
-                        이 직무 지원자 인사이트
-                      </button>
-                    )}
-
                     <button
                       type="button"
                       className="reflect-btn"
@@ -850,7 +866,41 @@ function App() {
                     >
                       회고 작성
                     </button>
+                    <button
+                      type="button"
+                      className="more-btn"
+                      onClick={() => setOpenMenuId(openMenuId === app.id ? null : app.id)}
+                    >
+                      ⋯
+                    </button>
                   </div>
+
+                  {openMenuId === app.id && (
+                    <div className="secondary-actions">
+                      <button type="button" className="text-btn" onClick={() => startEdit(app)}>
+                        수정
+                      </button>
+                      <button type="button" className="text-btn danger" onClick={() => handleDeleteApplication(app.id)}>
+                        삭제
+                      </button>
+                      <button
+                        type="button"
+                        className="text-btn insight-btn"
+                        onClick={() => viewCompanyInsight(app)}
+                      >
+                        이 회사 지원자 인사이트
+                      </button>
+                      {app.position && (
+                        <button
+                          type="button"
+                          className="text-btn insight-btn"
+                          onClick={() => viewPositionInsight(app)}
+                        >
+                          이 직무 지원자 인사이트
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {openListId === app.id && (

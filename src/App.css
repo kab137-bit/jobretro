@@ -846,3 +846,66 @@
 .source-tag {
   white-space: nowrap;
 }
+
+.more-btn {
+  background: none;
+  border: 1px solid #DDD8C8;
+  color: #6B7280;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.secondary-actions {
+  padding: 8px 12px;
+  border-top: 1px dashed #ECE9DE;
+  background: #FCFBF7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  column-gap: 14px;
+}
+
+.secondary-actions .text-btn {
+  white-space: nowrap;
+  padding: 2px 0;
+}
+
+.company-input-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.company-input-wrapper input {
+  width: 100%;
+}
+
+.company-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #DDD8C8;
+  border-radius: 6px;
+  margin-top: 4px;
+  list-style: none;
+  padding: 4px 0;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(31, 42, 68, 0.08);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.company-suggestions li {
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.company-suggestions li:hover {
+  background: #F4F1E6;
+}

@@ -626,3 +626,18 @@ def start_rehearsal_with_question(data: RehearsalFromQuestion, user_id: str = De
     response_data = result.data[0]
     response_data["source_reflections"] = []
     return response_data
+
+@app.get("/companies/suggest")
+def suggest_companies(q: str = "", user_id: str = Depends(get_current_user)):
+    all_apps = supabase.table("applications").select("company_name").execute().data
+    unique_names = list(set(a["company_name"] for a in all_apps if a.get("company_name")))
+
+    if not q:
+        return unique_names[:10]
+
+    normalized_q = q.replace(" ", "").replace("(주)", "").lower()
+    matched = [
+        name for name in unique_names
+        if normalized_q in name.replace(" ", "").replace("(주)", "").lower()
+    ]
+    return matched[:10]
