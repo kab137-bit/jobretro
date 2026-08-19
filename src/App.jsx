@@ -40,6 +40,10 @@ function App() {
   const [companyInsight, setCompanyInsight] = useState(null)
   const [companyInsightLoading, setCompanyInsightLoading] = useState(false)
   const [insightAppId, setInsightAppId] = useState(null)
+  const [rehearsalContext, setRehearsalContext] = useState(null)
+  const [positionInsight, setPositionInsight] = useState(null)
+  const [positionInsightLoading, setPositionInsightLoading] = useState(false)
+  const [positionInsightAppId, setPositionInsightAppId] = useState(null)
   const [checkedItems, setCheckedItems] = useState({})
   const [rehearsal, setRehearsal] = useState(null)
   const [rehearsalAnswer, setRehearsalAnswer] = useState('')
@@ -52,6 +56,7 @@ function App() {
   }
 
   async function startRehearsal(tag) {
+    setRehearsalContext({ type: 'report' })
     setRehearsalLoading(true)
     setRehearsal(null)
     setFollowUpQuestion(null)
@@ -71,6 +76,81 @@ function App() {
     } finally {
       setRehearsalLoading(false)
     }
+  }
+
+  async function startRehearsalFromInsight(question, appId) {
+    setRehearsalContext({ type: 'insight', appId })
+    setRehearsalLoading(true)
+    setRehearsal(null)
+    setFollowUpQuestion(null)
+    setRehearsalFeedback(null)
+    setRehearsalAnswer('')
+    setFollowUpAnswer('')
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, tag: '다른 지원자 공통 질문' }),
+      })
+      const data = await res.json()
+      setRehearsal(data)
+    } catch (err) {
+      alert('연습 시작 중 오류가 발생했어요')
+    } finally {
+      setRehearsalLoading(false)
+    }
+  }
+
+  function renderRehearsalCard() {
+    return (
+      <div className="rehearsal-card">
+        {rehearsal.source_reflections && rehearsal.source_reflections.length > 0 && (
+          <div className="source-quote-box">
+            <p className="source-quote-label">이 질문은 당신의 이 회고를 참고했어요</p>
+            {rehearsal.source_reflections.map((text, i) => (
+              <p className="source-quote" key={i}>"{text}"</p>
+            ))}
+          </div>
+        )}
+        <p className="rehearsal-question">Q. {rehearsal.question}</p>
+
+        {!followUpQuestion && !rehearsalFeedback && (
+          <>
+            <textarea
+              placeholder="이 질문에 어떻게 답하시겠어요?"
+              value={rehearsalAnswer}
+              onChange={(e) => setRehearsalAnswer(e.target.value)}
+              rows={4}
+            />
+            <button type="button" onClick={submitFirstAnswer} disabled={rehearsalLoading}>
+              {rehearsalLoading ? '면접관이 생각 중...' : '답변 제출'}
+            </button>
+          </>
+        )}
+
+        {followUpQuestion && !rehearsalFeedback && (
+          <div className="followup-block">
+            <p className="rehearsal-question followup">Q2. {followUpQuestion}</p>
+            <textarea
+              placeholder="꼬리질문에 답해보세요"
+              value={followUpAnswer}
+              onChange={(e) => setFollowUpAnswer(e.target.value)}
+              rows={4}
+            />
+            <button type="button" onClick={submitFollowUpAnswer} disabled={rehearsalLoading}>
+              {rehearsalLoading ? '피드백 준비 중...' : '답변 제출하고 피드백 받기'}
+            </button>
+          </div>
+        )}
+
+        {rehearsalFeedback && (
+          <div className="rehearsal-feedback">
+            <p className="feedback-label">AI 피드백</p>
+            <p>{rehearsalFeedback}</p>
+          </div>
+        )}
+      </div>
+    )
   }
 
   async function submitFirstAnswer() {
@@ -376,6 +456,23 @@ function App() {
     }
   }
 
+  async function viewPositionInsight(app) {
+    setPositionInsightAppId(app.id)
+    setPositionInsightLoading(true)
+    setPositionInsight(null)
+    try {
+      const res = await authFetch(
+        `${import.meta.env.VITE_API_URL}/position-insights/${encodeURIComponent(app.position)}`
+      )
+      const data = await res.json()
+      setPositionInsight(data)
+    } catch (err) {
+      alert('인사이트를 불러오는 중 오류가 발생했어요')
+    } finally {
+      setPositionInsightLoading(false)
+    }
+  }
+
   function formatDate(dateStr) {
     const d = new Date(dateStr)
     return `${d.getMonth() + 1}월 ${d.getDate()}일`
@@ -557,57 +654,11 @@ function App() {
                     ))}
                   </div>
 
-                  {rehearsalLoading && !rehearsal && <p className="rehearsal-loading">질문 준비 중...</p>}
-
-                                    {rehearsal && (
-                    <div className="rehearsal-card">
-                      {rehearsal.source_reflections && rehearsal.source_reflections.length > 0 && (
-                        <div className="source-quote-box">
-                          <p className="source-quote-label">이 질문은 당신의 이 회고를 참고했어요</p>
-                          {rehearsal.source_reflections.map((text, i) => (
-                            <p className="source-quote" key={i}>"{text}"</p>
-                          ))}
-                        </div>
-                      )}
-                      <p className="rehearsal-question">Q. {rehearsal.question}</p>
-
-                      {!followUpQuestion && !rehearsalFeedback && (
-                        <>
-                          <textarea
-                            placeholder="이 질문에 어떻게 답하시겠어요?"
-                            value={rehearsalAnswer}
-                            onChange={(e) => setRehearsalAnswer(e.target.value)}
-                            rows={4}
-                          />
-                          <button type="button" onClick={submitFirstAnswer} disabled={rehearsalLoading}>
-                            {rehearsalLoading ? '면접관이 생각 중...' : '답변 제출'}
-                          </button>
-                        </>
-                      )}
-
-                      {followUpQuestion && !rehearsalFeedback && (
-                        <div className="followup-block">
-                          <p className="rehearsal-question followup">Q2. {followUpQuestion}</p>
-                          <textarea
-                            placeholder="꼬리질문에 답해보세요"
-                            value={followUpAnswer}
-                            onChange={(e) => setFollowUpAnswer(e.target.value)}
-                            rows={4}
-                          />
-                          <button type="button" onClick={submitFollowUpAnswer} disabled={rehearsalLoading}>
-                            {rehearsalLoading ? '피드백 준비 중...' : '답변 제출하고 피드백 받기'}
-                          </button>
-                        </div>
-                      )}
-
-                      {rehearsalFeedback && (
-                        <div className="rehearsal-feedback">
-                          <p className="feedback-label">AI 피드백</p>
-                          <p>{rehearsalFeedback}</p>
-                        </div>
-                      )}
-                    </div>
+                  {rehearsalLoading && !rehearsal && rehearsalContext?.type === 'report' && (
+                    <p className="rehearsal-loading">질문 준비 중...</p>
                   )}
+
+                  {rehearsal && rehearsalContext?.type === 'report' && renderRehearsalCard()}
                 </div>
               </>
             ) : (
@@ -780,6 +831,16 @@ function App() {
                     >
                       이 회사 지원자 인사이트
                     </button>
+                    {app.position && (
+                      <button
+                        type="button"
+                        className="text-btn insight-btn"
+                        onClick={() => viewPositionInsight(app)}
+                      >
+                        이 직무 지원자 인사이트
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       className="reflect-btn"
@@ -867,6 +928,47 @@ function App() {
                             <p className="common-q-label">자주 나온 질문 유형</p>
                             <ul>
                               {companyInsight.common_questions.map((q, i) => (
+                                <li key={i}>
+                                  {q}
+                                  <button
+                                    type="button"
+                                    className="practice-this-btn"
+                                    onClick={() => startRehearsalFromInsight(q, app.id)}
+                                  >
+                                    이 질문으로 연습하기
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {rehearsalLoading && rehearsalContext?.type === 'insight' && rehearsalContext.appId === app.id && (
+                          <p className="rehearsal-loading">연습 준비 중...</p>
+                        )}
+
+                        {rehearsal && rehearsalContext?.type === 'insight' && rehearsalContext.appId === app.id && renderRehearsalCard()}
+                      </>
+                    ) : (
+                      <p className="insight-empty">{companyInsight?.message}</p>
+                    )}
+                  </div>
+                )}
+                {positionInsightAppId === app.id && (
+                  <div className="company-insight-box position-box">
+                    {positionInsightLoading ? (
+                      <p className="insight-loading">다른 지원자 데이터를 모으는 중...</p>
+                    ) : positionInsight?.enough_data ? (
+                      <>
+                        <p className="insight-header">
+                          {app.position} 직무 지원자 {positionInsight.applicant_count}명의 공통 경향
+                        </p>
+                        <p>{positionInsight.summary}</p>
+                        {positionInsight.common_questions && positionInsight.common_questions.length > 0 && (
+                          <div className="common-questions">
+                            <p className="common-q-label">자주 나온 질문 유형</p>
+                            <ul>
+                              {positionInsight.common_questions.map((q, i) => (
                                 <li key={i}>{q}</li>
                               ))}
                             </ul>
@@ -874,7 +976,7 @@ function App() {
                         )}
                       </>
                     ) : (
-                      <p className="insight-empty">{companyInsight?.message}</p>
+                      <p className="insight-empty">{positionInsight?.message}</p>
                     )}
                   </div>
                 )}

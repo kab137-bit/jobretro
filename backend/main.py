@@ -528,3 +528,101 @@ def get_company_insights(company_name: str, user_id: str = Depends(get_current_u
             "tag_counts": tag_counts,
         },
     }
+
+@app.get("/position-insights/{position}")
+def get_position_insights(position: str, user_id: str = Depends(get_current_user)):
+    matching_apps = (
+        supabase.table("applications")
+        .select("id, user_id")
+        .eq("position", position)
+        .execute()
+        .data
+    )
+
+    if not matching_apps:
+        return {"enough_data": False, "message": "이 직무에 대한 데이터가 아직 없어요."}
+
+    unique_users = set(a["user_id"] for a in matching_apps)
+    if len(unique_users) < 2:
+        return {
+            "enough_data": False,
+            "message": "아직 이 직무 지원자가 본인뿐이에요. 다른 사용자 데이터가 쌓이면 인사이트를 볼 수 있어요.",
+        }
+
+    app_ids = [a["id"] for a in matching_apps]
+    reflections = (
+        supabase.table("stage_results")
+        .select("stage, result, reason_tags, raw_text")
+        .in_("application_id", app_ids)
+        .execute()
+        .data
+    )
+
+    if len(reflections) < 3:
+        return {"enough_data": False, "message": "아직 회고 데이터가 충분하지 않아요."}
+
+    tag_counts = {}
+    for r in reflections:
+        for t in (r.get("reason_tags") or "").split(","):
+            t = t.strip()
+            if t:
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+
+    raw_texts = [r["raw_text"] for r in reflections if r.get("raw_text")]
+    combined_texts = "\n\n".join([f"[회고 {i+1}] {t}" for i, t in enumerate(raw_texts)])
+
+    prompt = f"""아래는 '{position}' 직무에 지원한 여러 명의 익명화된 면접 회고 원문입니다.
+
+[통계]
+- 지원자 수: {len(unique_users)}명 (본인 포함)
+- 회고 수: {len(reflections)}건
+- 자주 언급된 약점 태그: {tag_counts}
+
+[회고 원문 모음]
+{combined_texts}
+
+이 회고들을 분석해서 두 가지를 작성하세요:
+
+1. common_questions: 이 직무 지원자들이 공통으로 받은 질문 유형을 2~4개 뽑아주세요.
+2. summary: 이 직무 지원자들의 공통 경향을 2~3문장으로 요약하세요. 개인을 특정할 수 있는 표현은 쓰지 말고 집단 관점으로 서술하세요.
+
+반드시 아래와 정확히 같은 키 이름의 JSON으로만 응답하세요.
+{{"common_questions": ["...", "..."], "summary": "..."}}"""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="인사이트 생성 실패")
+
+    ai_result = response.json()
+    parsed = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+
+    return {
+        "enough_data": True,
+        "applicant_count": len(unique_users),
+        "summary": parsed.get("summary", ""),
+        "common_questions": parsed.get("common_questions", []),
+    }
+
+class RehearsalFromQuestion(BaseModel):
+    question: str
+    tag: str | None = None
+
+
+@app.post("/rehearsal/start")
+def start_rehearsal_with_question(data: RehearsalFromQuestion, user_id: str = Depends(get_current_user)):
+    result = supabase.table("rehearsals").insert({
+        "user_id": user_id,
+        "tag": data.tag or "다른 지원자 공통 질문",
+        "question": data.question,
+    }).execute()
+
+    response_data = result.data[0]
+    response_data["source_reflections"] = []
+    return response_data
