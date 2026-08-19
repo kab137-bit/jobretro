@@ -24,14 +24,79 @@ function App() {
   const [openListId, setOpenListId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
+  const [editingReflectionId, setEditingReflectionId] = useState(null)
+  const [editReflectionText, setEditReflectionText] = useState('')
+  const [updatingReflection, setUpdatingReflection] = useState(false)
   const [reflectionsByApp, setReflectionsByApp] = useState({})
   const [report, setReport] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
-
   const [checkedItems, setCheckedItems] = useState({})
-
+    const [rehearsal, setRehearsal] = useState(null)
+  const [rehearsalAnswer, setRehearsalAnswer] = useState('')
+  const [followUpQuestion, setFollowUpQuestion] = useState(null)
+  const [followUpAnswer, setFollowUpAnswer] = useState('')
+  const [rehearsalLoading, setRehearsalLoading] = useState(false)
+  const [rehearsalFeedback, setRehearsalFeedback] = useState(null)
   function toggleCheck(index) {
     setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
+  }
+
+  async function startRehearsal(tag) {
+    setRehearsalLoading(true)
+    setRehearsal(null)
+    setFollowUpQuestion(null)
+    setRehearsalFeedback(null)
+    setRehearsalAnswer('')
+    setFollowUpAnswer('')
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag }),
+      })
+      const data = await res.json()
+      setRehearsal(data)
+    } catch (err) {
+      alert('질문 생성 중 오류가 발생했어요')
+    } finally {
+      setRehearsalLoading(false)
+    }
+  }
+
+  async function submitFirstAnswer() {
+    if (!rehearsalAnswer.trim()) return
+    setRehearsalLoading(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/followup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rehearsal_id: rehearsal.id, answer: rehearsalAnswer }),
+      })
+      const data = await res.json()
+      setFollowUpQuestion(data.follow_up_question)
+    } catch (err) {
+      alert('꼬리질문 생성 중 오류가 발생했어요')
+    } finally {
+      setRehearsalLoading(false)
+    }
+  }
+
+  async function submitFollowUpAnswer() {
+    if (!followUpAnswer.trim()) return
+    setRehearsalLoading(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rehearsal_id: rehearsal.id, follow_up_answer: followUpAnswer }),
+      })
+      const data = await res.json()
+      setRehearsalFeedback(data.feedback)
+    } catch (err) {
+      alert('피드백 생성 중 오류가 발생했어요')
+    } finally {
+      setRehearsalLoading(false)
+    }
   }
 
   async function fetchApplications() {
@@ -210,6 +275,31 @@ function App() {
     }
   }
 
+    function startEditReflection(reflection) {
+    setEditingReflectionId(reflection.id)
+    setEditReflectionText(reflection.raw_text || '')
+  }
+
+  async function handleUpdateReflection(reflectionId, applicationId) {
+    if (!editReflectionText.trim()) return
+    setUpdatingReflection(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw_text: editReflectionText }),
+      })
+      if (!res.ok) throw new Error('수정 실패')
+
+      setEditingReflectionId(null)
+      await fetchReflectionsForApp(applicationId)
+    } catch (err) {
+      alert('수정 중 오류가 발생했어요: ' + err.message)
+    } finally {
+      setUpdatingReflection(false)
+    }
+  }
+
   async function handleViewReport() {
     setReportLoading(true)
     try {
@@ -319,6 +409,74 @@ function App() {
                     </ul>
                   </div>
                 )}
+
+                <div className="rehearsal-section">
+                  <p className="checklist-title">약점 리허설</p>
+                  <div className="tag-buttons">
+                    {Object.keys(report.stats.tag_counts).map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="tag-practice-btn"
+                        onClick={() => startRehearsal(tag)}
+                      >
+                        {tag} 연습하기
+                      </button>
+                    ))}
+                  </div>
+
+                  {rehearsalLoading && !rehearsal && <p className="rehearsal-loading">질문 준비 중...</p>}
+
+                                    {rehearsal && (
+                    <div className="rehearsal-card">
+                      {rehearsal.source_reflections && rehearsal.source_reflections.length > 0 && (
+                        <div className="source-quote-box">
+                          <p className="source-quote-label">이 질문은 당신의 이 회고를 참고했어요</p>
+                          {rehearsal.source_reflections.map((text, i) => (
+                            <p className="source-quote" key={i}>"{text}"</p>
+                          ))}
+                        </div>
+                      )}
+                      <p className="rehearsal-question">Q. {rehearsal.question}</p>
+
+                      {!followUpQuestion && !rehearsalFeedback && (
+                        <>
+                          <textarea
+                            placeholder="이 질문에 어떻게 답하시겠어요?"
+                            value={rehearsalAnswer}
+                            onChange={(e) => setRehearsalAnswer(e.target.value)}
+                            rows={4}
+                          />
+                          <button type="button" onClick={submitFirstAnswer} disabled={rehearsalLoading}>
+                            {rehearsalLoading ? '면접관이 생각 중...' : '답변 제출'}
+                          </button>
+                        </>
+                      )}
+
+                      {followUpQuestion && !rehearsalFeedback && (
+                        <div className="followup-block">
+                          <p className="rehearsal-question followup">Q2. {followUpQuestion}</p>
+                          <textarea
+                            placeholder="꼬리질문에 답해보세요"
+                            value={followUpAnswer}
+                            onChange={(e) => setFollowUpAnswer(e.target.value)}
+                            rows={4}
+                          />
+                          <button type="button" onClick={submitFollowUpAnswer} disabled={rehearsalLoading}>
+                            {rehearsalLoading ? '피드백 준비 중...' : '답변 제출하고 피드백 받기'}
+                          </button>
+                        </div>
+                      )}
+
+                      {rehearsalFeedback && (
+                        <div className="rehearsal-feedback">
+                          <p className="feedback-label">AI 피드백</p>
+                          <p>{rehearsalFeedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <p className="report-empty">{report.message}</p>
@@ -501,22 +659,53 @@ function App() {
                     ) : (
                       reflections.map((r) => (
                         <div key={r.id} className="reflection-entry">
-                          <div className="entry-top">
-                            <span className="entry-date">{formatDate(r.recorded_at)}</span>
-                            <span className="mini-tag">{r.stage}</span>
-                            <span className="mini-tag">{r.result}</span>
-                            {r.reason_tags?.split(',').filter(Boolean).map((t) => (
-                              <span className="mini-tag" key={t}>{t}</span>
-                            ))}
-                            <button
-                              type="button"
-                              className="delete-btn"
-                              onClick={() => handleDeleteReflection(r.id, app.id)}
-                            >
-                              삭제
-                            </button>
-                          </div>
-                          <p className="entry-memo">{r.memo}</p>
+                          {editingReflectionId === r.id ? (
+                            <div className="reflection-edit">
+                              <textarea
+                                value={editReflectionText}
+                                onChange={(e) => setEditReflectionText(e.target.value)}
+                                rows={3}
+                              />
+                              <div className="reflection-edit-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateReflection(r.id, app.id)}
+                                  disabled={updatingReflection}
+                                >
+                                  {updatingReflection ? 'AI 재분석 중...' : '저장'}
+                                </button>
+                                <button type="button" onClick={() => setEditingReflectionId(null)}>
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="entry-top">
+                                <span className="entry-date">{formatDate(r.recorded_at)}</span>
+                                <span className="mini-tag">{r.stage}</span>
+                                <span className="mini-tag">{r.result}</span>
+                                {r.reason_tags?.split(',').filter(Boolean).map((t) => (
+                                  <span className="mini-tag" key={t}>{t}</span>
+                                ))}
+                                <button
+                                  type="button"
+                                  className="delete-btn"
+                                  onClick={() => startEditReflection(r)}
+                                >
+                                  수정
+                                </button>
+                                <button
+                                  type="button"
+                                  className="delete-btn"
+                                  onClick={() => handleDeleteReflection(r.id, app.id)}
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                              <p className="entry-memo">{r.memo}</p>
+                            </>
+                          )}
                         </div>
                       ))
                     )}

@@ -463,3 +463,201 @@
   text-decoration: line-through;
   color: #6B7280;
 }
+
+/* ===== 전체 인터랙션 다듬기 ===== */
+.app-card-wrapper {
+  transition: box-shadow 0.15s ease;
+}
+
+.app-card-wrapper:hover {
+  box-shadow: 0 2px 8px rgba(31, 42, 68, 0.06);
+}
+
+.reflect-btn, .text-btn, .report-btn, .add-form button {
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.reflect-btn:hover, .text-btn:hover {
+  opacity: 0.7;
+}
+
+.report-btn:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.add-form button:active:not(:disabled),
+.report-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ===== 섹션 간격 통일 ===== */
+.summary-bar, .upcoming-section, .report-section, .add-form, .filter-bar {
+  margin-bottom: 24px;
+}
+
+/* ===== 약점 리허설 ===== */
+.rehearsal-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed #E8D98A;
+}
+
+.tag-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.tag-practice-btn {
+  background: #fff;
+  border: 1px solid #C9A227;
+  color: #8A6D00;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tag-practice-btn:hover {
+  background: #FBF3D9;
+}
+
+.rehearsal-loading {
+  color: #6B7280;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.rehearsal-card {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid #ECE9DE;
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.rehearsal-question {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.rehearsal-card textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #DDD8C8;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.rehearsal-card > button {
+  background: #1F2A44;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rehearsal-card > button:disabled {
+  opacity: 0.5;
+}
+
+.rehearsal-feedback {
+  background: #F4F1E6;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.feedback-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rehearsal-feedback p:last-child {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.followup-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #ECE9DE;
+}
+
+.rehearsal-question.followup {
+  color: #8A6D00;
+}
+
+.source-quote-box {
+  background: #F4F1E6;
+  border-left: 3px solid #C9A227;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.source-quote-label {
+  font-size: 11px;
+  color: #6B7280;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-quote {
+  font-size: 13px;
+  color: #1F2A44;
+  margin: 0 0 4px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.source-quote:last-child {
+  margin-bottom: 0;
+}
+
+.reflection-edit textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #DDD8C8;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.reflection-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.reflection-edit-actions button {
+  background: #1F2A44;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reflection-edit-actions button:last-child {
+  background: none;
+  border: 1px solid #DDD8C8;
+  color: #6B7280;
+}

@@ -165,6 +165,42 @@ def delete_reflection(reflection_id: str):
     supabase.table("stage_results").delete().eq("id", reflection_id).execute()
     return {"deleted": True}
 
+class ReflectionUpdate(BaseModel):
+    raw_text: str
+
+
+@app.put("/reflections/{reflection_id}")
+def update_reflection(reflection_id: str, data: ReflectionUpdate):
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        json={
+            "contents": [{"parts": [{"text": data.raw_text}]}],
+            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="AI 재분석 실패")
+
+    ai_result = response.json()
+    text = ai_result["candidates"][0]["content"]["parts"][0]["text"]
+    parsed = json.loads(text)
+
+    result = (
+        supabase.table("stage_results")
+        .update({
+            "stage": parsed.get("stage"),
+            "result": parsed.get("result"),
+            "reason_tags": ",".join(parsed.get("reason_tags", [])),
+            "memo": parsed.get("summary"),
+            "raw_text": data.raw_text,
+        })
+        .eq("id", reflection_id)
+        .execute()
+    )
+    return result.data
+
 @app.get("/report")
 def get_report():
     reflections = supabase.table("stage_results").select("*").execute().data
@@ -217,7 +253,8 @@ def get_report():
     )
 
     if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="리포트 생성 실패")
+        print("Gemini 에러 응답:", response.status_code, response.text)
+        raise HTTPException(status_code=500, detail=f"리포트 생성 실패: {response.text}")
 
     ai_result = response.json()
     parsed_report = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
@@ -241,3 +278,126 @@ def get_report():
         "checklist": checklist,
         "stats": stats_snapshot,
     }
+
+class RehearsalGenerate(BaseModel):
+    tag: str
+
+
+@app.post("/rehearsal/generate")
+def generate_rehearsal_question(data: RehearsalGenerate):
+    related = (
+        supabase.table("stage_results")
+        .select("raw_text")
+        .ilike("reason_tags", f"%{data.tag}%")
+        .limit(3)
+        .execute()
+        .data
+    )
+    source_texts = [r["raw_text"] for r in related if r.get("raw_text")]
+    examples = "\n".join([f"- {t}" for t in source_texts])
+
+    prompt = f"""당신은 면접관입니다. 지원자가 과거 '{data.tag}' 관련 질문에서 아래와 같은 아쉬움을 스스로 남겼습니다.
+
+[지원자가 남긴 회고]
+{examples if examples else "(참고할 회고가 없어 일반적인 질문으로 작성)"}
+
+이 회고 내용을 참고해서, 지원자가 아쉬워했던 바로 그 지점을 정확히 파고드는 모의 면접 질문을 하나 작성하세요.
+일반적인 질문이 아니라, 위 회고에서 언급된 구체적 상황이나 표현을 반영한 질문이어야 합니다.
+한 문장으로, 실제 면접관의 자연스러운 어조로 작성하세요. 질문 텍스트만 응답하세요."""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        json={"contents": [{"parts": [{"text": prompt}]}]},
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="질문 생성 실패")
+
+    ai_result = response.json()
+    question = ai_result["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+    result = supabase.table("rehearsals").insert({
+        "tag": data.tag,
+        "question": question,
+    }).execute()
+
+    response_data = result.data[0]
+    response_data["source_reflections"] = source_texts
+    return response_data
+
+
+class RehearsalFollowup(BaseModel):
+    rehearsal_id: str
+    answer: str
+
+
+@app.post("/rehearsal/followup")
+def generate_followup(data: RehearsalFollowup):
+    rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
+
+    prompt = f"""당신은 면접관입니다. 아래는 방금 지원자에게 한 질문과 그 답변입니다.
+
+질문: {rehearsal['question']}
+답변: {data.answer}
+
+이 답변에서 구체성이 부족하거나 더 파고들 만한 지점을 하나 찾아, 실제 면접관이 할 법한 꼬리질문을 하나만 작성하세요.
+예: 역할이 모호하면 "구체적으로 어떤 역할을 맡으셨나요?", 결과가 없으면 "그래서 결과는 어땠나요?" 같은 식.
+한 문장으로, 질문 텍스트만 응답하세요."""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        json={"contents": [{"parts": [{"text": prompt}]}]},
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="꼬리질문 생성 실패")
+
+    ai_result = response.json()
+    follow_up_question = ai_result["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+    supabase.table("rehearsals").update({
+        "answer": data.answer,
+        "follow_up_question": follow_up_question,
+    }).eq("id", data.rehearsal_id).execute()
+
+    return {"follow_up_question": follow_up_question}
+
+
+class RehearsalFinal(BaseModel):
+    rehearsal_id: str
+    follow_up_answer: str
+
+
+@app.post("/rehearsal/feedback")
+def give_rehearsal_feedback(data: RehearsalFinal):
+    rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
+
+    prompt = f"""아래는 모의 면접의 전체 대화입니다.
+
+질문 1: {rehearsal['question']}
+답변 1: {rehearsal['answer']}
+꼬리질문: {rehearsal['follow_up_question']}
+답변 2: {data.follow_up_answer}
+
+STAR 기법(상황-과제-행동-결과) 관점에서 두 답변을 종합해 평가하고 피드백을 주세요.
+
+작성 규칙:
+- 잘한 점 1가지와 보완하면 좋을 점 1~2가지를 구체적으로 짚어주세요.
+- 건설적인 어조를 사용하세요.
+- 4문장 이내로 작성하세요."""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        json={"contents": [{"parts": [{"text": prompt}]}]},
+    )
+    if response.status_code != 200:
+        print("Gemini 에러 응답:", response.status_code, response.text)
+        raise HTTPException(status_code=500, detail=f"피드백 생성 실패: {response.text}")
+
+    ai_result = response.json()
+    feedback = ai_result["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+    supabase.table("rehearsals").update({
+        "follow_up_answer": data.follow_up_answer,
+        "feedback": feedback,
+    }).eq("id", data.rehearsal_id).execute()
+
+    return {"feedback": feedback}
