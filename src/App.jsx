@@ -54,6 +54,7 @@ function App() {
   const [followUpAnswer, setFollowUpAnswer] = useState('')
   const [rehearsalLoading, setRehearsalLoading] = useState(false)
   const [rehearsalFeedback, setRehearsalFeedback] = useState(null)
+
   function toggleCheck(index) {
     setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
   }
@@ -202,17 +203,7 @@ function App() {
       },
     })
   }
-  
-  async function authFetch(url, options = {}) {
-    const token = session?.access_token
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...(options.headers || {}),
-        Authorization: `Bearer ${token}`,
-      },
-    })
-  }
+
   async function fetchApplications() {
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications`)
@@ -251,7 +242,7 @@ function App() {
 
     return () => listener.subscription.unsubscribe()
   }, [])
-  
+
   useEffect(() => {
     if (!session) return
 
@@ -282,7 +273,7 @@ function App() {
       // 추천 실패는 조용히 무시 (핵심 기능 아님)
     }
   }
-  
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!companyName.trim()) return
@@ -336,7 +327,7 @@ function App() {
     }
   }
 
-    async function handleDeleteApplication(applicationId) {
+  async function handleDeleteApplication(applicationId) {
     const confirmed = window.confirm('이 지원 카드를 삭제할까요? 관련 회고도 함께 삭제돼요.')
     if (!confirmed) return
 
@@ -423,7 +414,7 @@ function App() {
     }
   }
 
-    function startEditReflection(reflection) {
+  function startEditReflection(reflection) {
     setEditingReflectionId(reflection.id)
     setEditReflectionText(reflection.raw_text || '')
   }
@@ -588,7 +579,43 @@ function App() {
         </div>
       </header>
 
-     {applications.length > 0 && (
+      {!loading && !error && applications.length === 0 && (
+        <div className="onboarding-state">
+          <p className="onboarding-title">취준 회고 저널에 오신 걸 환영해요 👋</p>
+          <p className="onboarding-desc">
+            이 서비스는 이렇게 도와드려요
+          </p>
+          <ul className="onboarding-steps">
+            <li>
+              <span className="onboarding-num">1</span>
+              <div>
+                <strong>지원 카드를 등록</strong>하고 회사별 진행 상황을 한눈에 관리하세요
+              </div>
+            </li>
+            <li>
+              <span className="onboarding-num">2</span>
+              <div>
+                면접 후 <strong>편하게 회고를 남기면</strong>, AI가 자동으로 정리해드려요
+              </div>
+            </li>
+            <li>
+              <span className="onboarding-num">3</span>
+              <div>
+                회고가 쌓이면 <strong>AI 패턴 분석</strong>과 <strong>약점 리허설</strong>로 다음 면접을 준비하세요
+              </div>
+            </li>
+            <li>
+              <span className="onboarding-num">4</span>
+              <div>
+                같은 회사 지원자가 쌓이면 <strong>다른 사람들이 자주 받은 질문</strong>도 확인할 수 있어요
+              </div>
+            </li>
+          </ul>
+          <p className="onboarding-cta">아래에서 첫 지원 카드를 등록해보세요 ↓</p>
+        </div>
+      )}
+
+      {applications.length > 0 && (
         <div className="summary-bar">
           <div className="summary-item">
             <span className="summary-number">{applications.length}</span>
@@ -787,13 +814,6 @@ function App() {
 
       {loading && <p>불러오는 중...</p>}
       {error && <p>에러 발생: {error}</p>}
-
-      {!loading && !error && applications.length === 0 && (
-        <div className="empty-state">
-          <strong>아직 기록된 지원이 없어요</strong>
-          첫 지원 카드를 추가하면 여기에 쌓이기 시작해요
-        </div>
-      )}
 
       {!loading && applications.length > 0 && (() => {
         const filtered = applications.filter((app) => {
