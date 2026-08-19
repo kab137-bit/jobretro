@@ -11,6 +11,9 @@ function App() {
   const [applyDate, setApplyDate] = useState('')
   const [scheduleLabel, setScheduleLabel] = useState('')
   const [scheduleDate, setScheduleDate] = useState('')
+  const [source, setSource] = useState('')
+  const [searchText, setSearchText] = useState('')
+  const [filterStatus, setFilterStatus] = useState('전체')
   const [submitting, setSubmitting] = useState(false)
 
   const [openFormId, setOpenFormId] = useState(null)
@@ -74,6 +77,7 @@ function App() {
           apply_date: applyDate || null,
           next_schedule_date: scheduleDate || null,
           next_schedule_label: scheduleLabel || null,
+          source: source || null,
         }),
       })
       if (!res.ok) throw new Error('저장 실패')
@@ -83,6 +87,7 @@ function App() {
       setApplyDate('')
       setScheduleLabel('')
       setScheduleDate('')
+      setSource('')
       await fetchApplications()
     } catch (err) {
       alert('저장 중 오류가 발생했어요: ' + err.message)
@@ -253,10 +258,38 @@ function App() {
             onChange={(e) => setScheduleDate(e.target.value)}
           />
         </div>
+        <div className="form-row">
+          <select value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="">지원 출처 선택</option>
+            <option value="사람인">사람인</option>
+            <option value="잡코리아">잡코리아</option>
+            <option value="원티드">원티드</option>
+            <option value="자체 채용페이지">자체 채용페이지</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
         <button type="submit" disabled={submitting}>
           {submitting ? '저장 중...' : '+ 지원 기록하기'}
         </button>
       </form>
+
+      <div className="filter-bar">
+        <input
+          type="text"
+          placeholder="회사명 검색"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          className="search-input"
+        />
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <option value="전체">전체 상태</option>
+          <option value="지원함">지원함</option>
+          <option value="서류중">서류중</option>
+          <option value="면접중">면접중</option>
+          <option value="최종합격">최종합격</option>
+          <option value="불합격">불합격</option>
+        </select>
+      </div>
 
       {loading && <p>불러오는 중...</p>}
       {error && <p>에러 발생: {error}</p>}
@@ -268,9 +301,20 @@ function App() {
         </div>
       )}
 
-      {!loading && applications.length > 0 && (
+      {!loading && applications.length > 0 && (() => {
+        const filtered = applications.filter((app) => {
+          const matchesSearch = app.company_name.toLowerCase().includes(searchText.toLowerCase())
+          const matchesStatus = filterStatus === '전체' || app.status === filterStatus
+          return matchesSearch && matchesStatus
+        })
+
+        if (filtered.length === 0) {
+          return <p className="no-result">조건에 맞는 지원 카드가 없어요</p>
+        }
+
+        return (
         <ul className="card-list">
-          {applications.map((app) => {
+          {filtered.map((app) => {
             const reflections = reflectionsByApp[app.id] || []
             return (
               <li key={app.id} className="app-card-wrapper">
@@ -278,6 +322,7 @@ function App() {
                   <div>
                     <span className="company">{app.company_name}</span>
                     {app.position && <span className="position"> · {app.position}</span>}
+                    {app.source && <span className="source-tag">{app.source}</span>}
                   </div>
                   <div className="card-actions">
                     <select
@@ -362,7 +407,8 @@ function App() {
             )
           })}
         </ul>
-      )}
+        )
+      })()}
     </div>
   )
 }

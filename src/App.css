@@ -329,3 +329,39 @@
   padding: 2px 8px;
   border-radius: 12px;
 }
+
+.source-tag {
+  font-size: 11px;
+  color: #8A6D00;
+  background: #FBF3D9;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #DDD8C8;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.filter-bar select {
+  padding: 8px 12px;
+  border: 1px solid #DDD8C8;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.no-result {
+  color: #6B7280;
+  text-align: center;
+  padding: 24px;
+}
