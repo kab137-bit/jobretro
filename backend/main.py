@@ -29,6 +29,8 @@ class ApplicationCreate(BaseModel):
     apply_date: str | None = None
     next_schedule_date: str | None = None
     next_schedule_label: str | None = None
+    source: str | None = None
+    job_post_url: str | None = None
 
 
 @app.get("/")
@@ -50,6 +52,8 @@ def create_application(app_data: ApplicationCreate):
         "apply_date": app_data.apply_date,
         "next_schedule_date": app_data.next_schedule_date,
         "next_schedule_label": app_data.next_schedule_label,
+        "source": app_data.source,
+        "job_post_url": app_data.job_post_url,
         "status": "지원함",
     }).execute()
     return result.data
@@ -63,6 +67,30 @@ def update_status(application_id: str, data: StatusUpdate):
     result = (
         supabase.table("applications")
         .update({"status": data.status})
+        .eq("id", application_id)
+        .execute()
+    )
+    return result.data
+
+@app.delete("/applications/{application_id}")
+def delete_application(application_id: str):
+    supabase.table("stage_results").delete().eq("application_id", application_id).execute()
+    supabase.table("applications").delete().eq("id", application_id).execute()
+    return {"deleted": True}
+
+
+@app.put("/applications/{application_id}")
+def update_application(application_id: str, app_data: ApplicationCreate):
+    result = (
+        supabase.table("applications")
+        .update({
+            "company_name": app_data.company_name,
+            "position": app_data.position,
+            "apply_date": app_data.apply_date,
+            "next_schedule_date": app_data.next_schedule_date,
+            "next_schedule_label": app_data.next_schedule_label,
+            "source": app_data.source,
+        })
         .eq("id", application_id)
         .execute()
     )
@@ -166,27 +194,35 @@ def get_report():
 - 결과별 분포: {result_counts}
 - 약점 태그 빈도: {tag_counts}"""
 
-    prompt = f"""아래는 한 취준생이 남긴 지원 회고 통계입니다. 이 데이터를 바탕으로 회고 인사이트를 작성해주세요.
+    prompt = f"""아래는 한 취준생이 남긴 지원 회고 통계입니다.
 
 [통계]
 {stats_text}
 
-작성 규칙:
-- 숫자를 다시 계산하거나 새로 만들지 말고, 주어진 숫자만 인용하세요.
-- 단정적 표현("~때문입니다") 대신 완곡한 표현("~가능성이 있어요")을 쓰세요.
-- 4문장 이내로 작성하세요.
-- 다음에 무엇을 준비하면 좋을지 한 줄 제안을 포함하세요."""
+다음 두 가지를 각각 작성하세요:
+
+1. summary: 회고 인사이트. 4문장 이내. 숫자는 주어진 것만 인용. 완곡한 표현 사용. 다음 준비 제안은 summary에 포함하지 말 것.
+2. checklist: 다음 면접 전 준비하면 좋을 구체적 행동 2~3개. 각 항목은 15자 이내의 짧은 행동 문구.
+
+반드시 아래와 정확히 같은 키 이름으로 된 JSON 객체 하나만 응답하세요. summary와 checklist 두 키가 모두 반드시 포함되어야 합니다.
+
+{{"summary": "...", "checklist": ["...", "..."]}}"""
 
     response = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
-        json={"contents": [{"parts": [{"text": prompt}]}]},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
     )
 
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="리포트 생성 실패")
 
     ai_result = response.json()
-    summary_text = ai_result["candidates"][0]["content"]["parts"][0]["text"]
+    parsed_report = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+    summary_text = parsed_report.get("summary", "")
+    checklist = parsed_report.get("checklist", [])
 
     stats_snapshot = {
         "stage_counts": stage_counts,
@@ -199,4 +235,9 @@ def get_report():
         "stats_snapshot": stats_snapshot,
     }).execute()
 
-    return {"enough_data": True, "summary": summary_text, "stats": stats_snapshot}
+    return {
+        "enough_data": True,
+        "summary": summary_text,
+        "checklist": checklist,
+        "stats": stats_snapshot,
+    }

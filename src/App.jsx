@@ -7,6 +7,7 @@ function App() {
   const [error, setError] = useState(null)
 
   const [companyName, setCompanyName] = useState('')
+  const [jobPostUrl, setJobPostUrl] = useState('')
   const [position, setPosition] = useState('')
   const [applyDate, setApplyDate] = useState('')
   const [scheduleLabel, setScheduleLabel] = useState('')
@@ -21,9 +22,17 @@ function App() {
   const [reflecting, setReflecting] = useState(false)
 
   const [openListId, setOpenListId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
   const [reflectionsByApp, setReflectionsByApp] = useState({})
   const [report, setReport] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
+
+  const [checkedItems, setCheckedItems] = useState({})
+
+  function toggleCheck(index) {
+    setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
+  }
 
   async function fetchApplications() {
     try {
@@ -78,6 +87,7 @@ function App() {
           next_schedule_date: scheduleDate || null,
           next_schedule_label: scheduleLabel || null,
           source: source || null,
+          job_post_url: jobPostUrl || null,
         }),
       })
       if (!res.ok) throw new Error('저장 실패')
@@ -88,6 +98,7 @@ function App() {
       setScheduleLabel('')
       setScheduleDate('')
       setSource('')
+      setJobPostUrl('')
       await fetchApplications()
     } catch (err) {
       alert('저장 중 오류가 발생했어요: ' + err.message)
@@ -110,6 +121,50 @@ function App() {
           app.id === applicationId ? { ...app, status: newStatus } : app
         )
       )
+    }
+  }
+
+    async function handleDeleteApplication(applicationId) {
+    const confirmed = window.confirm('이 지원 카드를 삭제할까요? 관련 회고도 함께 삭제돼요.')
+    if (!confirmed) return
+
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
+      method: 'DELETE',
+    })
+    if (res.ok) {
+      await fetchApplications()
+    } else {
+      alert('삭제 중 오류가 발생했어요')
+    }
+  }
+
+  function startEdit(app) {
+    setEditingId(app.id)
+    setEditData({
+      company_name: app.company_name,
+      position: app.position || '',
+      apply_date: app.apply_date || '',
+    })
+  }
+
+  async function handleUpdateApplication(applicationId, original) {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        company_name: editData.company_name,
+        position: editData.position || null,
+        apply_date: editData.apply_date || null,
+        next_schedule_date: original.next_schedule_date || null,
+        next_schedule_label: original.next_schedule_label || null,
+        source: original.source || null,
+      }),
+    })
+    if (res.ok) {
+      setEditingId(null)
+      await fetchApplications()
+    } else {
+      alert('수정 중 오류가 발생했어요')
     }
   }
 
@@ -191,6 +246,33 @@ function App() {
         <p>오늘의 지원을 기록하고, 내일의 패턴을 발견해요</p>
       </header>
 
+     {applications.length > 0 && (
+        <div className="summary-bar">
+          <div className="summary-item">
+            <span className="summary-number">{applications.length}</span>
+            <span className="summary-label">총 지원</span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-number">
+              {applications.filter((a) => a.status === '서류중' || a.status === '면접중').length}
+            </span>
+            <span className="summary-label">진행중</span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-number">
+              {applications.filter((a) => a.status === '최종합격').length}
+            </span>
+            <span className="summary-label">합격</span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-number">
+              {applications.filter((a) => a.status === '불합격').length}
+            </span>
+            <span className="summary-label">불합격</span>
+          </div>
+        </div>
+      )}
+
       {applications.filter((a) => a.next_schedule_date).length > 0 && (
         <div className="upcoming-section">
           <h3>다가오는 일정</h3>
@@ -216,7 +298,28 @@ function App() {
         {report && (
           <div className="report-card">
             {report.enough_data ? (
-              <p>{report.summary}</p>
+              <>
+                <p>{report.summary}</p>
+                {report.checklist && report.checklist.length > 0 && (
+                  <div className="checklist">
+                    <p className="checklist-title">다음 면접 전 체크리스트</p>
+                    <ul>
+                      {report.checklist.map((item, i) => (
+                        <li key={i}>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={!!checkedItems[i]}
+                              onChange={() => toggleCheck(i)}
+                            />
+                            <span className={checkedItems[i] ? 'checked-text' : ''}>{item}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="report-empty">{report.message}</p>
             )}
@@ -243,6 +346,14 @@ function App() {
             type="date"
             value={applyDate}
             onChange={(e) => setApplyDate(e.target.value)}
+          />
+        </div>
+        <div className="form-row">
+          <input
+            type="url"
+            placeholder="공고 링크 (선택)"
+            value={jobPostUrl}
+            onChange={(e) => setJobPostUrl(e.target.value)}
           />
         </div>
         <div className="form-row">
@@ -319,11 +430,31 @@ function App() {
             return (
               <li key={app.id} className="app-card-wrapper">
                 <div className="app-card">
-                  <div>
-                    <span className="company">{app.company_name}</span>
-                    {app.position && <span className="position"> · {app.position}</span>}
-                    {app.source && <span className="source-tag">{app.source}</span>}
-                  </div>
+                  {editingId === app.id ? (
+                    <div className="edit-row">
+                      <input
+                        type="text"
+                        value={editData.company_name}
+                        onChange={(e) => setEditData({ ...editData, company_name: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        value={editData.position}
+                        onChange={(e) => setEditData({ ...editData, position: e.target.value })}
+                      />
+                      <button type="button" onClick={() => handleUpdateApplication(app.id, app)}>저장</button>
+                      <button type="button" onClick={() => setEditingId(null)}>취소</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="company">{app.company_name}</span>
+                      {app.position && <span className="position"> · {app.position}</span>}
+                      {app.source && <span className="source-tag">{app.source}</span>}
+                      {app.job_post_url && (
+                        <a href={app.job_post_url} target="_blank" rel="noreferrer" className="link-icon">🔗</a>
+                      )}
+                    </div>
+                  )}
                   <div className="card-actions">
                     <select
                       className="status-tag status-select"
@@ -336,6 +467,12 @@ function App() {
                       <option value="최종합격">최종합격</option>
                       <option value="불합격">불합격</option>
                     </select>
+                    <button type="button" className="text-btn" onClick={() => startEdit(app)}>
+                      수정
+                    </button>
+                    <button type="button" className="text-btn danger" onClick={() => handleDeleteApplication(app.id)}>
+                      삭제
+                    </button>
                     <button
                       type="button"
                       className="text-btn"
