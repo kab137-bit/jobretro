@@ -22,7 +22,21 @@ app.add_middleware(
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+from fastapi import Depends, Header
 
+def get_current_user(authorization: str = Header(None)):
+    print("받은 Authorization 헤더:", authorization)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="로그인이 필요해요")
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        user = supabase.auth.get_user(token)
+        print("인증된 사용자:", user.user.id)
+        return user.user.id
+    except Exception as e:
+        print("토큰 검증 실패:", str(e))
+        raise HTTPException(status_code=401, detail="유효하지 않은 로그인 정보예요")
 class ApplicationCreate(BaseModel):
     company_name: str
     position: str | None = None
@@ -39,14 +53,21 @@ def root():
 
 
 @app.get("/applications")
-def get_applications():
-    result = supabase.table("applications").select("*").order("created_at", desc=True).execute()
+def get_applications(user_id: str = Depends(get_current_user)):
+    result = (
+        supabase.table("applications")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
     return result.data
 
 
 @app.post("/applications")
-def create_application(app_data: ApplicationCreate):
+def create_application(app_data: ApplicationCreate, user_id: str = Depends(get_current_user)):
     result = supabase.table("applications").insert({
+        "user_id": user_id,
         "company_name": app_data.company_name,
         "position": app_data.position,
         "apply_date": app_data.apply_date,
@@ -63,7 +84,7 @@ class StatusUpdate(BaseModel):
 
 
 @app.patch("/applications/{application_id}/status")
-def update_status(application_id: str, data: StatusUpdate):
+def update_status(application_id: str, data: StatusUpdate, user_id: str = Depends(get_current_user)):
     result = (
         supabase.table("applications")
         .update({"status": data.status})
@@ -72,15 +93,16 @@ def update_status(application_id: str, data: StatusUpdate):
     )
     return result.data
 
+
 @app.delete("/applications/{application_id}")
-def delete_application(application_id: str):
+def delete_application(application_id: str, user_id: str = Depends(get_current_user)):
     supabase.table("stage_results").delete().eq("application_id", application_id).execute()
     supabase.table("applications").delete().eq("id", application_id).execute()
     return {"deleted": True}
 
 
 @app.put("/applications/{application_id}")
-def update_application(application_id: str, app_data: ApplicationCreate):
+def update_application(application_id: str, app_data: ApplicationCreate, user_id: str = Depends(get_current_user)):
     result = (
         supabase.table("applications")
         .update({
@@ -116,21 +138,21 @@ class ReflectionCreate(BaseModel):
 
 
 @app.get("/applications/{application_id}/reflections")
-def get_reflections(application_id: str):
+def get_reflections(application_id: str, user_id: str = Depends(get_current_user)):
     result = (
         supabase.table("stage_results")
         .select("*")
         .eq("application_id", application_id)
+        .eq("user_id", user_id)
         .order("recorded_at", desc=True)
         .execute()
     )
     return result.data
 
-
 @app.post("/reflections")
-def create_reflection(data: ReflectionCreate):
+def create_reflection(data: ReflectionCreate, user_id: str = Depends(get_current_user)):
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={
             "contents": [{"parts": [{"text": data.raw_text}]}],
             "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -149,6 +171,7 @@ def create_reflection(data: ReflectionCreate):
         supabase.table("stage_results")
         .insert({
             "application_id": data.application_id,
+            "user_id": user_id,
             "stage": parsed.get("stage"),
             "result": parsed.get("result"),
             "reason_tags": ",".join(parsed.get("reason_tags", [])),
@@ -161,18 +184,23 @@ def create_reflection(data: ReflectionCreate):
 
 
 @app.delete("/reflections/{reflection_id}")
-def delete_reflection(reflection_id: str):
+def delete_reflection(reflection_id: str, user_id: str = Depends(get_current_user)):
     supabase.table("stage_results").delete().eq("id", reflection_id).execute()
     return {"deleted": True}
+
+
+class ReflectionCreate(BaseModel):
+    application_id: str
+    raw_text: str
+
 
 class ReflectionUpdate(BaseModel):
     raw_text: str
 
-
 @app.put("/reflections/{reflection_id}")
-def update_reflection(reflection_id: str, data: ReflectionUpdate):
+def update_reflection(reflection_id: str, data: ReflectionUpdate, user_id: str = Depends(get_current_user)):
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={
             "contents": [{"parts": [{"text": data.raw_text}]}],
             "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -202,8 +230,8 @@ def update_reflection(reflection_id: str, data: ReflectionUpdate):
     return result.data
 
 @app.get("/report")
-def get_report():
-    reflections = supabase.table("stage_results").select("*").execute().data
+def get_report(user_id: str = Depends(get_current_user)):
+    reflections = supabase.table("stage_results").select("*").eq("user_id", user_id).execute().data
 
     if len(reflections) < 3:
         return {
@@ -245,7 +273,7 @@ def get_report():
 {{"summary": "...", "checklist": ["...", "..."]}}"""
 
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json"},
@@ -268,6 +296,7 @@ def get_report():
     }
 
     supabase.table("analysis_reports").insert({
+        "user_id": user_id,
         "summary_text": summary_text,
         "stats_snapshot": stats_snapshot,
     }).execute()
@@ -284,10 +313,11 @@ class RehearsalGenerate(BaseModel):
 
 
 @app.post("/rehearsal/generate")
-def generate_rehearsal_question(data: RehearsalGenerate):
+def generate_rehearsal_question(data: RehearsalGenerate, user_id: str = Depends(get_current_user)):
     related = (
         supabase.table("stage_results")
         .select("raw_text")
+        .eq("user_id", user_id)
         .ilike("reason_tags", f"%{data.tag}%")
         .limit(3)
         .execute()
@@ -306,7 +336,7 @@ def generate_rehearsal_question(data: RehearsalGenerate):
 한 문장으로, 실제 면접관의 자연스러운 어조로 작성하세요. 질문 텍스트만 응답하세요."""
 
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={"contents": [{"parts": [{"text": prompt}]}]},
     )
     if response.status_code != 200:
@@ -316,6 +346,7 @@ def generate_rehearsal_question(data: RehearsalGenerate):
     question = ai_result["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     result = supabase.table("rehearsals").insert({
+        "user_id": user_id,
         "tag": data.tag,
         "question": question,
     }).execute()
@@ -324,14 +355,13 @@ def generate_rehearsal_question(data: RehearsalGenerate):
     response_data["source_reflections"] = source_texts
     return response_data
 
-
 class RehearsalFollowup(BaseModel):
     rehearsal_id: str
     answer: str
 
 
 @app.post("/rehearsal/followup")
-def generate_followup(data: RehearsalFollowup):
+def generate_followup(data: RehearsalFollowup, user_id: str = Depends(get_current_user)):
     rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
 
     prompt = f"""당신은 면접관입니다. 아래는 방금 지원자에게 한 질문과 그 답변입니다.
@@ -344,7 +374,7 @@ def generate_followup(data: RehearsalFollowup):
 한 문장으로, 질문 텍스트만 응답하세요."""
 
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={"contents": [{"parts": [{"text": prompt}]}]},
     )
     if response.status_code != 200:
@@ -367,7 +397,7 @@ class RehearsalFinal(BaseModel):
 
 
 @app.post("/rehearsal/feedback")
-def give_rehearsal_feedback(data: RehearsalFinal):
+def give_rehearsal_feedback(data: RehearsalFinal, user_id: str = Depends(get_current_user)):
     rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
 
     prompt = f"""아래는 모의 면접의 전체 대화입니다.
@@ -385,7 +415,7 @@ STAR 기법(상황-과제-행동-결과) 관점에서 두 답변을 종합해 �
 - 4문장 이내로 작성하세요."""
 
     response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
         json={"contents": [{"parts": [{"text": prompt}]}]},
     )
     if response.status_code != 200:

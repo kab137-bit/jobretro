@@ -1,8 +1,15 @@
+import { supabase } from './supabaseClient'
 import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
   const [applications, setApplications] = useState([])
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMode, setAuthMode] = useState('login')
+  const [authError, setAuthError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -49,7 +56,7 @@ function App() {
     setRehearsalAnswer('')
     setFollowUpAnswer('')
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/generate`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag }),
@@ -67,7 +74,7 @@ function App() {
     if (!rehearsalAnswer.trim()) return
     setRehearsalLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/followup`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/followup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rehearsal_id: rehearsal.id, answer: rehearsalAnswer }),
@@ -85,7 +92,7 @@ function App() {
     if (!followUpAnswer.trim()) return
     setRehearsalLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/rehearsal/feedback`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rehearsal_id: rehearsal.id, follow_up_answer: followUpAnswer }),
@@ -99,9 +106,30 @@ function App() {
     }
   }
 
+  async function authFetch(url, options = {}) {
+    const token = session?.access_token
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  }
+  
+  async function authFetch(url, options = {}) {
+    const token = session?.access_token
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  }
   async function fetchApplications() {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/applications`)
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications`)
       if (!res.ok) throw new Error('불러오기 실패')
       const data = await res.json()
       setApplications(data)
@@ -112,7 +140,7 @@ function App() {
   }
 
   async function fetchReflectionsForApp(applicationId) {
-    const res = await fetch(
+    const res = await authFetch(
       `${import.meta.env.VITE_API_URL}/applications/${applicationId}/reflections`
     )
     const data = await res.json()
@@ -126,15 +154,30 @@ function App() {
   }
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthLoading(false)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
+  
+  useEffect(() => {
+    if (!session) return
+
     async function init() {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/applications`)
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications`)
       const data = await res.json()
       setApplications(data)
       setLoading(false)
       await fetchAllReflections(data)
     }
     init()
-  }, [])
+  }, [session])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -142,7 +185,7 @@ function App() {
 
     setSubmitting(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/applications`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +215,7 @@ function App() {
   }
 
   async function handleStatusChange(applicationId, newStatus) {
-    const res = await fetch(
+    const res = await authFetch(
       `${import.meta.env.VITE_API_URL}/applications/${applicationId}/status`,
       {
         method: 'PATCH',
@@ -193,7 +236,7 @@ function App() {
     const confirmed = window.confirm('이 지원 카드를 삭제할까요? 관련 회고도 함께 삭제돼요.')
     if (!confirmed) return
 
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
+    const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
       method: 'DELETE',
     })
     if (res.ok) {
@@ -213,7 +256,7 @@ function App() {
   }
 
   async function handleUpdateApplication(applicationId, original) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
+    const res = await authFetch(`${import.meta.env.VITE_API_URL}/applications/${applicationId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -238,7 +281,7 @@ function App() {
     setReflecting(true)
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/reflections`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/reflections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -264,7 +307,7 @@ function App() {
     const confirmed = window.confirm('이 회고를 삭제할까요?')
     if (!confirmed) return
 
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
+    const res = await authFetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
       method: 'DELETE',
     })
 
@@ -284,7 +327,7 @@ function App() {
     if (!editReflectionText.trim()) return
     setUpdatingReflection(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/reflections/${reflectionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_text: editReflectionText }),
@@ -303,7 +346,7 @@ function App() {
   async function handleViewReport() {
     setReportLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/report`)
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/report`)
       const data = await res.json()
       setReport(data)
     } catch (err) {
@@ -329,11 +372,80 @@ function App() {
     return `D+${Math.abs(diff)}`
   }
 
+  async function handleAuthSubmit(e) {
+    e.preventDefault()
+    setAuthError('')
+
+    if (authMode === 'signup') {
+      const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword })
+      if (error) setAuthError(error.message)
+      else setAuthError('가입 완료! 이메일을 확인해서 인증해주세요. (또는 바로 로그인 시도해보세요)')
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+      if (error) setAuthError(error.message)
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+  }
+
+  if (authLoading) {
+    return <div className="auth-loading">불러오는 중...</div>
+  }
+
+  if (!session) {
+    return (
+      <div className="auth-wrapper">
+        <div className="auth-card">
+          <h1 className="auth-title">취준 회고 저널</h1>
+          <p className="auth-subtitle">오늘의 지원을 기록하고, 내일의 패턴을 발견해요</p>
+
+          <form onSubmit={handleAuthSubmit} className="auth-form">
+            <input
+              type="email"
+              placeholder="이메일"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="비밀번호 (6자 이상)"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              required
+            />
+            <button type="submit">{authMode === 'login' ? '로그인' : '회원가입'}</button>
+          </form>
+
+          {authError && <p className="auth-error">{authError}</p>}
+
+          <button
+            type="button"
+            className="auth-switch"
+            onClick={() => {
+              setAuthMode(authMode === 'login' ? 'signup' : 'login')
+              setAuthError('')
+            }}
+          >
+            {authMode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <header className="journal-header">
-        <h1>취준 회고 저널</h1>
-        <p>오늘의 지원을 기록하고, 내일의 패턴을 발견해요</p>
+        <div className="header-top">
+          <div>
+            <h1>취준 회고 저널</h1>
+            <p>오늘의 지원을 기록하고, 내일의 패턴을 발견해요</p>
+          </div>
+          <button type="button" className="logout-btn" onClick={handleLogout}>로그아웃</button>
+        </div>
       </header>
 
      {applications.length > 0 && (
