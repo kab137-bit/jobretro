@@ -61,6 +61,7 @@ function App() {
   const [rehearsalLoading, setRehearsalLoading] = useState(false)
   const [rehearsalFeedback, setRehearsalFeedback] = useState(null)
   const [sampleAnswer, setSampleAnswer] = useState(null)
+  const [showMyAnswers, setShowMyAnswers] = useState(false)
   const { isListening, startListening, stopListening } = useSpeechToText()
   const [listeningFor, setListeningFor] = useState(null)
   const [rehearsalHistory, setRehearsalHistory] = useState([])
@@ -78,6 +79,7 @@ function App() {
     setFollowUpQuestion(null)
     setRehearsalFeedback(null)
     setSampleAnswer(null)
+    setShowMyAnswers(false)
     setRehearsalAnswer('')
     setFollowUpAnswer('')
     try {
@@ -102,6 +104,7 @@ function App() {
     setFollowUpQuestion(null)
     setRehearsalFeedback(null)
     setSampleAnswer(null)
+    setShowMyAnswers(false)
     setRehearsalAnswer('')
     setFollowUpAnswer('')
     try {
@@ -122,7 +125,7 @@ function App() {
   function renderRehearsalCard() {
     return (
       <div className="rehearsal-card">
-        {rehearsal.source_reflections && rehearsal.source_reflections.length > 0 && (
+        {!rehearsalFeedback && rehearsal.source_reflections && rehearsal.source_reflections.length > 0 && (
           <div className="source-quote-box">
             <p className="source-quote-label">이 질문은 당신의 이 회고를 참고했어요</p>
             {rehearsal.source_reflections.map((text, i) => (
@@ -197,6 +200,29 @@ function App() {
 
         {rehearsalFeedback && (
           <div className="rehearsal-feedback">
+            <button
+              type="button"
+              className="toggle-my-answers-btn"
+              onClick={() => setShowMyAnswers(!showMyAnswers)}
+            >
+              {showMyAnswers ? '내 답변 숨기기 ▲' : '내가 쓴 답변 다시 보기 ▼'}
+            </button>
+
+            {showMyAnswers && (
+              <div className="my-answers-review">
+                <div className="my-answer-block">
+                  <p className="my-answer-q">Q1. {rehearsal.question}</p>
+                  <p className="my-answer-text">{rehearsalAnswer}</p>
+                </div>
+                {followUpQuestion && (
+                  <div className="my-answer-block">
+                    <p className="my-answer-q">Q2. {followUpQuestion}</p>
+                    <p className="my-answer-text">{followUpAnswer}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <p className="feedback-label">AI 피드백</p>
             <p>{rehearsalFeedback}</p>
             {sampleAnswer && (
@@ -1227,6 +1253,10 @@ function App() {
                                 </div>
                               </div>
                               <p className="entry-memo">{r.memo}</p>
+                              <details className="raw-text-details">
+                                <summary>원문 보기</summary>
+                                <p className="raw-text-content">{r.raw_text}</p>
+                              </details>
                             </>
                           )}
                         </div>
