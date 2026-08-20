@@ -143,6 +143,7 @@ def map_status_from_reflection(stage, result):
 class ReflectionCreate(BaseModel):
     application_id: str
     raw_text: str
+    mood: str | None = None
 
 
 @app.get("/applications/{application_id}/reflections")
@@ -185,6 +186,7 @@ def create_reflection(data: ReflectionCreate, user_id: str = Depends(get_current
             "reason_tags": ",".join(parsed.get("reason_tags", [])),
             "memo": parsed.get("summary"),
             "raw_text": data.raw_text,
+            "mood": data.mood,
         })
         .execute()
     )
@@ -686,3 +688,52 @@ def suggest_companies(q: str = "", user_id: str = Depends(get_current_user)):
         if normalized_q in name.replace(" ", "").replace("(주)", "").lower()
     ]
     return matched[:10]
+
+from bs4 import BeautifulSoup
+
+
+class UrlParseRequest(BaseModel):
+    url: str
+
+
+@app.post("/parse-job-url")
+def parse_job_url(data: UrlParseRequest, user_id: str = Depends(get_current_user)):
+    try:
+        page = requests.get(data.url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
+        soup = BeautifulSoup(page.text, "html.parser")
+        page_title = soup.title.string if soup.title else ""
+    except Exception:
+        return {"success": False, "message": "페이지 정보를 가져오지 못했어요. 직접 입력해주세요."}
+
+    prompt = f"""아래는 채용 공고 페이지의 제목입니다.
+
+페이지 제목: {page_title}
+
+이 정보에서 회사명과 직무를 추측해서 JSON으로만 응답하세요.
+
+주의사항:
+- position(직무)은 실제 업무 분야를 의미합니다. 예: "백엔드 개발", "서비스 기획", "마케팅"
+- "인턴", "신입", "경력", "채용연계형" 같은 고용 형태 표현은 position에 포함하지 마세요. 정확한 직무명을 알 수 없다면 null로 응답하세요.
+- 확실하지 않은 정보는 null로 응답하세요.
+
+{{"company_name": "...", "position": "..."}}"""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+    )
+
+    if response.status_code != 200:
+        return {"success": False, "message": "정보 추출에 실패했어요. 직접 입력해주세요."}
+
+    ai_result = response.json()
+    parsed = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+
+    return {
+        "success": True,
+        "company_name": parsed.get("company_name"),
+        "position": parsed.get("position"),
+    }

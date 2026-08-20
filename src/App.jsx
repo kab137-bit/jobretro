@@ -10,6 +10,8 @@ function App() {
   const [authPassword, setAuthPassword] = useState('')
   const [authMode, setAuthMode] = useState('login')
   const [authError, setAuthError] = useState('')
+  const [resetMode, setResetMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -17,6 +19,7 @@ function App() {
   const [companySuggestions, setCompanySuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [jobPostUrl, setJobPostUrl] = useState('')
+  const [parsingUrl, setParsingUrl] = useState(false)
   const [position, setPosition] = useState('')
   const [applyDate, setApplyDate] = useState('')
   const [scheduleLabel, setScheduleLabel] = useState('')
@@ -28,6 +31,7 @@ function App() {
 
   const [openFormId, setOpenFormId] = useState(null)
   const [reflectionText, setReflectionText] = useState('')
+  const [reflectionMood, setReflectionMood] = useState(null)
   const [reflecting, setReflecting] = useState(false)
 
   const [openListId, setOpenListId] = useState(null)
@@ -274,6 +278,29 @@ function App() {
     }
   }
 
+  async function handleParseUrl() {
+    if (!jobPostUrl.trim()) return
+    setParsingUrl(true)
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/parse-job-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: jobPostUrl }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        if (data.company_name) setCompanyName(data.company_name)
+        if (data.position) setPosition(data.position)
+      } else {
+        alert(data.message || '자동으로 채우지 못했어요. 직접 입력해주세요.')
+      }
+    } catch (err) {
+      alert('링크 분석 중 오류가 발생했어요')
+    } finally {
+      setParsingUrl(false)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!companyName.trim()) return
@@ -382,12 +409,14 @@ function App() {
         body: JSON.stringify({
           application_id: applicationId,
           raw_text: reflectionText,
+          mood: reflectionMood,
         }),
       })
 
       if (!res.ok) throw new Error('저장 실패')
 
       setReflectionText('')
+      setReflectionMood(null)
       setOpenFormId(null)
       setOpenListId(applicationId)
       await fetchReflectionsForApp(applicationId)
@@ -517,6 +546,17 @@ function App() {
     }
   }
 
+  async function handlePasswordReset(e) {
+    e.preventDefault()
+    setAuthError('')
+    const { error } = await supabase.auth.resetPasswordForEmail(authEmail)
+    if (error) {
+      setAuthError(error.message)
+    } else {
+      setResetSent(true)
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
   }
@@ -532,36 +572,83 @@ function App() {
           <h1 className="auth-title">취준 회고 저널</h1>
           <p className="auth-subtitle">오늘의 지원을 기록하고, 내일의 패턴을 발견해요</p>
 
-          <form onSubmit={handleAuthSubmit} className="auth-form">
-            <input
-              type="email"
-              placeholder="이메일"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              placeholder="비밀번호 (6자 이상)"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-              required
-            />
-            <button type="submit">{authMode === 'login' ? '로그인' : '회원가입'}</button>
-          </form>
+          {resetMode ? (
+            resetSent ? (
+              <p className="auth-success">비밀번호 재설정 링크를 이메일로 보냈어요. 메일함을 확인해주세요.</p>
+            ) : (
+              <form onSubmit={handlePasswordReset} className="auth-form">
+                <input
+                  type="email"
+                  placeholder="가입한 이메일"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  required
+                />
+                <button type="submit">재설정 링크 보내기</button>
+              </form>
+            )
+          ) : (
+            <form onSubmit={handleAuthSubmit} className="auth-form">
+              <input
+                type="email"
+                placeholder="이메일"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                placeholder="비밀번호 (6자 이상)"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                required
+              />
+              <button type="submit">{authMode === 'login' ? '로그인' : '회원가입'}</button>
+            </form>
+          )}
 
           {authError && <p className="auth-error">{authError}</p>}
 
-          <button
-            type="button"
-            className="auth-switch"
-            onClick={() => {
-              setAuthMode(authMode === 'login' ? 'signup' : 'login')
-              setAuthError('')
-            }}
-          >
-            {authMode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
-          </button>
+          {!resetMode && (
+            <>
+              <button
+                type="button"
+                className="auth-switch"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'signup' : 'login')
+                  setAuthError('')
+                }}
+              >
+                {authMode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
+              </button>
+              {authMode === 'login' && (
+                <button
+                  type="button"
+                  className="auth-switch"
+                  onClick={() => {
+                    setResetMode(true)
+                    setAuthError('')
+                  }}
+                >
+                  비밀번호를 잊으셨나요?
+                </button>
+              )}
+            </>
+          )}
+
+          {resetMode && (
+            <button
+              type="button"
+              className="auth-switch"
+              onClick={() => {
+                setResetMode(false)
+                setResetSent(false)
+                setAuthError('')
+              }}
+            >
+              로그인 화면으로 돌아가기
+            </button>
+          )}
         </div>
       </div>
     )
@@ -772,6 +859,9 @@ function App() {
             value={jobPostUrl}
             onChange={(e) => setJobPostUrl(e.target.value)}
           />
+          <button type="button" className="parse-url-btn" onClick={handleParseUrl} disabled={parsingUrl}>
+            {parsingUrl ? '분석 중...' : '자동 채우기'}
+          </button>
         </div>
         <div className="form-row">
           <input
@@ -962,8 +1052,10 @@ function App() {
                           ) : (
                             <>
                               <div className="entry-top">
+                                {r.mood && <span className="mood-display">{r.mood}</span>}
                                 <span className="entry-date">{formatDate(r.recorded_at)}</span>
                                 <span className="mini-tag">{r.stage}</span>
+                                
                                 <span className="mini-tag">{r.result}</span>
                                 {r.reason_tags?.split(',').filter(Boolean).map((t) => (
                                   <span className="mini-tag" key={t}>{t}</span>
@@ -1062,6 +1154,18 @@ function App() {
 
                 {openFormId === app.id && (
                   <div className="reflection-form">
+                    <div className="mood-picker">
+                      {['😊', '😐', '😞'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className={`mood-btn ${reflectionMood === emoji ? 'selected' : ''}`}
+                          onClick={() => setReflectionMood(emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
                     <textarea
                       placeholder="오늘 어떤 전형을 봤고, 어떻게 느꼈는지 편하게 적어주세요"
                       value={reflectionText}
