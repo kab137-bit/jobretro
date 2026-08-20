@@ -27,6 +27,7 @@ function App() {
   const [source, setSource] = useState('')
   const [searchText, setSearchText] = useState('')
   const [filterStatus, setFilterStatus] = useState('전체')
+  const [showArchived, setShowArchived] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [openFormId, setOpenFormId] = useState(null)
@@ -58,6 +59,9 @@ function App() {
   const [followUpAnswer, setFollowUpAnswer] = useState('')
   const [rehearsalLoading, setRehearsalLoading] = useState(false)
   const [rehearsalFeedback, setRehearsalFeedback] = useState(null)
+  const [rehearsalHistory, setRehearsalHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   function toggleCheck(index) {
     setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -195,6 +199,22 @@ function App() {
     } finally {
       setRehearsalLoading(false)
     }
+  }
+
+  async function toggleHistory() {
+    if (!showHistory) {
+      setHistoryLoading(true)
+      try {
+        const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/history`)
+        const data = await res.json()
+        setRehearsalHistory(data)
+      } catch (err) {
+        alert('히스토리를 불러오는 중 오류가 발생했어요')
+      } finally {
+        setHistoryLoading(false)
+      }
+    }
+    setShowHistory(!showHistory)
   }
 
   async function authFetch(url, options = {}) {
@@ -372,6 +392,23 @@ function App() {
     }
   }
 
+  async function handleToggleArchive(applicationId, currentArchived) {
+    const res = await authFetch(
+      `${import.meta.env.VITE_API_URL}/applications/${applicationId}/archive`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_archived: !currentArchived }),
+      }
+    )
+    if (res.ok) {
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === applicationId ? { ...app, is_archived: !currentArchived } : app
+        )
+      )
+    }
+  }
   async function handleDeleteApplication(applicationId) {
     const confirmed = window.confirm('이 지원 카드를 삭제할까요? 관련 회고도 함께 삭제돼요.')
     if (!confirmed) return
@@ -802,7 +839,30 @@ function App() {
                 )}
 
                 <div className="rehearsal-section">
-                  <p className="checklist-title">약점 리허설</p>
+                  <div className="rehearsal-section-header">
+                    <p className="checklist-title">약점 리허설</p>
+                    <button type="button" className="history-toggle-btn" onClick={toggleHistory}>
+                      {showHistory ? '히스토리 닫기' : '지금까지 연습한 것 보기'}
+                    </button>
+                  </div>
+
+                  {showHistory && (
+                    <div className="rehearsal-history">
+                      {historyLoading ? (
+                        <p className="insight-loading">불러오는 중...</p>
+                      ) : rehearsalHistory.length === 0 ? (
+                        <p className="no-reflection">아직 완료한 연습이 없어요</p>
+                      ) : (
+                        rehearsalHistory.map((h) => (
+                          <div key={h.id} className="history-entry">
+                            <span className="mini-tag">{h.tag}</span>
+                            <p className="history-question">Q. {h.question}</p>
+                            <p className="history-feedback">{h.feedback}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   <div className="tag-buttons">
                     {Object.keys(report.stats.tag_counts).map((tag) => (
                       <button
@@ -925,6 +985,13 @@ function App() {
           <option value="최종합격">최종합격</option>
           <option value="불합격">불합격</option>
         </select>
+        <button
+          type="button"
+          className={`archive-toggle-btn ${showArchived ? 'active' : ''}`}
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          {showArchived ? '보관함 보는 중' : '보관함 보기'}
+        </button>
       </div>
 
       {loading && <p>불러오는 중...</p>}
@@ -935,10 +1002,10 @@ function App() {
           .filter((app) => {
             const matchesSearch = app.company_name.toLowerCase().includes(searchText.toLowerCase())
             const matchesStatus = filterStatus === '전체' || app.status === filterStatus
-            return matchesSearch && matchesStatus
+            const matchesArchive = showArchived ? app.is_archived : !app.is_archived
+            return matchesSearch && matchesStatus && matchesArchive
           })
           .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
-
         if (filtered.length === 0) {
           return <p className="no-result">조건에 맞는 지원 카드가 없어요</p>
         }
@@ -1028,6 +1095,13 @@ function App() {
                       </button>
                       <button type="button" className="text-btn danger" onClick={() => handleDeleteApplication(app.id)}>
                         삭제
+                      </button>
+                      <button
+                        type="button"
+                        className="text-btn"
+                        onClick={() => handleToggleArchive(app.id, app.is_archived)}
+                      >
+                        {app.is_archived ? '보관 해제' : '보관하기'}
                       </button>
                       <button
                         type="button"

@@ -107,6 +107,20 @@ def update_pin(application_id: str, data: PinUpdate, user_id: str = Depends(get_
     )
     return result.data
 
+class ArchiveUpdate(BaseModel):
+    is_archived: bool
+
+
+@app.patch("/applications/{application_id}/archive")
+def update_archive(application_id: str, data: ArchiveUpdate, user_id: str = Depends(get_current_user)):
+    result = (
+        supabase.table("applications")
+        .update({"is_archived": data.is_archived})
+        .eq("id", application_id)
+        .execute()
+    )
+    return result.data
+
 @app.delete("/applications/{application_id}")
 def delete_application(application_id: str, user_id: str = Depends(get_current_user)):
     supabase.table("stage_results").delete().eq("application_id", application_id).execute()
@@ -750,3 +764,15 @@ def parse_job_url(data: UrlParseRequest, user_id: str = Depends(get_current_user
         "company_name": parsed.get("company_name"),
         "position": parsed.get("position"),
     }
+
+@app.get("/rehearsal/history")
+def get_rehearsal_history(user_id: str = Depends(get_current_user)):
+    result = (
+        supabase.table("rehearsals")
+        .select("*")
+        .eq("user_id", user_id)
+        .not_.is_("feedback", "null")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data

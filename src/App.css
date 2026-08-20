@@ -1091,3 +1091,62 @@
 .pin-btn:hover {
   color: #C9A227;
 }
+
+.rehearsal-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-toggle-btn {
+  background: none;
+  border: none;
+  color: #6B7280;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rehearsal-history {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-entry {
+  background: #fff;
+  border: 1px solid #ECE9DE;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.history-question {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 6px 0 4px;
+  color: #1F2A44;
+}
+
+.history-feedback {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.5;
+}
+.archive-toggle-btn {
+  background: none;
+  border: 1px solid #DDD8C8;
+  color: #6B7280;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.archive-toggle-btn.active {
+  background: #1F2A44;
+  color: #fff;
+  border-color: #1F2A44;
+}
