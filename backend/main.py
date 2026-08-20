@@ -277,6 +277,31 @@ def get_report(user_id: str = Depends(get_current_user)):
 - 결과별 분포: {result_counts}
 - 약점 태그 빈도: {tag_counts}"""
 
+    positive_reflections = [
+        r for r in reflections
+        if r.get("result") in ("합격",) or r.get("stage") in ("최종면접",) and r.get("result") == "합격"
+    ]
+    strength_summary = None
+    if len(positive_reflections) >= 2:
+        positive_texts = "\n\n".join(
+            [f"[회고 {i+1}] {r['raw_text']}" for i, r in enumerate(positive_reflections) if r.get("raw_text")]
+        )
+        strength_prompt = f"""아래는 한 취준생이 '합격'했던 케이스들의 회고입니다.
+
+[합격 회고 모음]
+{positive_texts}
+
+이 회고들 사이에서 공통적으로 나타나는 잘한 점, 즉 '이 사람이 합격했을 때 자주 보였던 패턴'을 2~3문장으로 요약해주세요.
+칭찬하는 어조로, 구체적인 근거를 들어 작성하세요. 마크다운 문법(별표, 굵게 표시 등)은 사용하지 말고 일반 텍스트로만 작성하세요."""
+
+        strength_response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
+            json={"contents": [{"parts": [{"text": strength_prompt}]}]},
+        )
+        if strength_response.status_code == 200:
+            strength_ai = strength_response.json()
+            strength_summary = strength_ai["candidates"][0]["content"]["parts"][0]["text"].strip()
+
     prompt = f"""아래는 한 취준생이 남긴 지원 회고 통계입니다.
 
 [통계]
@@ -324,6 +349,7 @@ def get_report(user_id: str = Depends(get_current_user)):
         "enough_data": True,
         "summary": summary_text,
         "checklist": checklist,
+        "strength_summary": strength_summary,
         "stats": stats_snapshot,
     }
 

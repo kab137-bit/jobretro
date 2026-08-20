@@ -973,3 +973,25 @@
   padding-top: 14px;
   border-top: 1px dashed #ECE9DE;
 }
+
+.strength-box {
+  margin-top: 16px;
+  padding: 16px;
+  background: #EFF6EF;
+  border: 1px solid #D3E6D3;
+  border-radius: 10px;
+}
+
+.strength-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3E7C59;
+  margin: 0 0 6px;
+}
+
+.strength-box p:not(.strength-label) {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1F2A44;
+}

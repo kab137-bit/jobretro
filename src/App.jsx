@@ -689,6 +689,13 @@ function App() {
                   </div>
                 )}
 
+                {report.strength_summary && (
+                  <div className="strength-box">
+                    <p className="strength-label">✨ 잘하고 있는 점</p>
+                    <p>{report.strength_summary}</p>
+                  </div>
+                )}
+
                 <div className="rehearsal-section">
                   <p className="checklist-title">약점 리허설</p>
                   <div className="tag-buttons">
