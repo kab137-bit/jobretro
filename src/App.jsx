@@ -354,6 +354,24 @@ function App() {
     }
   }
 
+  async function handleTogglePin(applicationId, currentPinned) {
+    const res = await authFetch(
+      `${import.meta.env.VITE_API_URL}/applications/${applicationId}/pin`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_pinned: !currentPinned }),
+      }
+    )
+    if (res.ok) {
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === applicationId ? { ...app, is_pinned: !currentPinned } : app
+        )
+      )
+    }
+  }
+
   async function handleDeleteApplication(applicationId) {
     const confirmed = window.confirm('이 지원 카드를 삭제할까요? 관련 회고도 함께 삭제돼요.')
     if (!confirmed) return
@@ -913,11 +931,13 @@ function App() {
       {error && <p>에러 발생: {error}</p>}
 
       {!loading && applications.length > 0 && (() => {
-        const filtered = applications.filter((app) => {
-          const matchesSearch = app.company_name.toLowerCase().includes(searchText.toLowerCase())
-          const matchesStatus = filterStatus === '전체' || app.status === filterStatus
-          return matchesSearch && matchesStatus
-        })
+        const filtered = applications
+          .filter((app) => {
+            const matchesSearch = app.company_name.toLowerCase().includes(searchText.toLowerCase())
+            const matchesStatus = filterStatus === '전체' || app.status === filterStatus
+            return matchesSearch && matchesStatus
+          })
+          .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
 
         if (filtered.length === 0) {
           return <p className="no-result">조건에 맞는 지원 카드가 없어요</p>
@@ -947,6 +967,13 @@ function App() {
                     </div>
                   ) : (
                     <div>
+                      <button
+                        type="button"
+                        className={`pin-btn ${app.is_pinned ? 'pinned' : ''}`}
+                        onClick={() => handleTogglePin(app.id, app.is_pinned)}
+                      >
+                        {app.is_pinned ? '★' : '☆'}
+                      </button>
                       <span className="company">{app.company_name}</span>
                       {app.position && <span className="position"> · {app.position}</span>}
                       {app.source && <span className="source-tag">{app.source}</span>}
@@ -1052,28 +1079,31 @@ function App() {
                           ) : (
                             <>
                               <div className="entry-top">
-                                {r.mood && <span className="mood-display">{r.mood}</span>}
-                                <span className="entry-date">{formatDate(r.recorded_at)}</span>
-                                <span className="mini-tag">{r.stage}</span>
-                                
-                                <span className="mini-tag">{r.result}</span>
-                                {r.reason_tags?.split(',').filter(Boolean).map((t) => (
-                                  <span className="mini-tag" key={t}>{t}</span>
-                                ))}
-                                <button
-                                  type="button"
-                                  className="delete-btn"
-                                  onClick={() => startEditReflection(r)}
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  type="button"
-                                  className="delete-btn"
-                                  onClick={() => handleDeleteReflection(r.id, app.id)}
-                                >
-                                  삭제
-                                </button>
+                                <div className="entry-tags">
+                                  {r.mood && <span className="mood-display">{r.mood}</span>}
+                                  <span className="entry-date">{formatDate(r.recorded_at)}</span>
+                                  <span className="mini-tag">{r.stage}</span>
+                                  <span className="mini-tag">{r.result}</span>
+                                  {r.reason_tags?.split(',').filter(Boolean).map((t) => (
+                                    <span className="mini-tag" key={t}>{t}</span>
+                                  ))}
+                                </div>
+                                <div className="entry-buttons">
+                                  <button
+                                    type="button"
+                                    className="delete-btn"
+                                    onClick={() => startEditReflection(r)}
+                                  >
+                                    수정
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="delete-btn"
+                                    onClick={() => handleDeleteReflection(r.id, app.id)}
+                                  >
+                                    삭제
+                                  </button>
+                                </div>
                               </div>
                               <p className="entry-memo">{r.memo}</p>
                             </>

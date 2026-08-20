@@ -215,12 +215,34 @@
   padding-left: 12px;
 }
 
-.entry-top {
+.enㄴtry-top {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.entry-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.entry-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entry-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .entry-date {
@@ -1027,19 +1049,45 @@
 
 .mood-btn {
   background: #fff;
-  border: 1px solid #DDD8C8;
-  border-radius: 8px;
-  width: 40px;
-  height: 40px;
-  font-size: 18px;
+  border: 2px solid #E8E4D9;
+  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  font-size: 20px;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mood-btn:hover {
+  border-color: #C9A227;
+  background: #FBF3D9;
 }
 
 .mood-btn.selected {
   border-color: #C9A227;
   background: #FBF3D9;
+  transform: scale(1.05);
 }
 
 .mood-display {
   font-size: 15px;
+}
+
+.pin-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #DDD8C8;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.pin-btn.pinned {
+  color: #C9A227;
+}
+
+.pin-btn:hover {
+  color: #C9A227;
 }

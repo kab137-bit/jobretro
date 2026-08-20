@@ -93,6 +93,19 @@ def update_status(application_id: str, data: StatusUpdate, user_id: str = Depend
     )
     return result.data
 
+class PinUpdate(BaseModel):
+    is_pinned: bool
+
+
+@app.patch("/applications/{application_id}/pin")
+def update_pin(application_id: str, data: PinUpdate, user_id: str = Depends(get_current_user)):
+    result = (
+        supabase.table("applications")
+        .update({"is_pinned": data.is_pinned})
+        .eq("id", application_id)
+        .execute()
+    )
+    return result.data
 
 @app.delete("/applications/{application_id}")
 def delete_application(application_id: str, user_id: str = Depends(get_current_user)):
