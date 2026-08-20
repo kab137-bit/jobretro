@@ -481,30 +481,37 @@ def give_rehearsal_feedback(data: RehearsalFinal, user_id: str = Depends(get_cur
 꼬리질문: {rehearsal['follow_up_question']}
 답변 2: {data.follow_up_answer}
 
-STAR 기법(상황-과제-행동-결과) 관점에서 두 답변을 종합해 평가하고 피드백을 주세요.
+다음 두 가지를 작성하세요:
 
-작성 규칙:
-- 잘한 점 1가지와 보완하면 좋을 점 1~2가지를 구체적으로 짚어주세요.
-- 건설적인 어조를 사용하세요.
-- 4문장 이내로 작성하세요."""
+1. feedback: STAR 기법(상황-과제-행동-결과) 관점에서 두 답변을 종합 평가. 잘한 점 1가지와 보완하면 좋을 점 1~2가지를 구체적으로. 건설적인 어조로 4문장 이내.
+2. sample_answer: 같은 질문(질문 1)에 대해, 위 답변의 아쉬운 점을 보완한 모범 답안을 실제 면접 답변처럼 자연스럽게 작성. 사용자가 처한 것과 비슷한 상황을 가정해서 3~5문장 정도로 구체적으로 작성.
+
+마크다운 문법은 사용하지 말고 일반 텍스트로 작성하세요.
+반드시 아래와 정확히 같은 키 이름의 JSON으로만 응답하세요.
+{{"feedback": "...", "sample_answer": "..."}}"""
 
     response = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
-        json={"contents": [{"parts": [{"text": prompt}]}]},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
     )
     if response.status_code != 200:
         print("Gemini 에러 응답:", response.status_code, response.text)
         raise HTTPException(status_code=500, detail=f"피드백 생성 실패: {response.text}")
 
     ai_result = response.json()
-    feedback = ai_result["candidates"][0]["content"]["parts"][0]["text"].strip()
+    parsed = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+    feedback = parsed.get("feedback", "")
+    sample_answer = parsed.get("sample_answer", "")
 
     supabase.table("rehearsals").update({
         "follow_up_answer": data.follow_up_answer,
         "feedback": feedback,
     }).eq("id", data.rehearsal_id).execute()
 
-    return {"feedback": feedback}
+    return {"feedback": feedback, "sample_answer": sample_answer}
 
 @app.get("/company-insights/{company_name}")
 def get_company_insights(company_name: str, user_id: str = Depends(get_current_user)):

@@ -1150,3 +1150,52 @@
   color: #fff;
   border-color: #1F2A44;
 }
+
+.textarea-with-mic {
+  position: relative;
+}
+
+.mic-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: #fff;
+  border: 1px solid #DDD8C8;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.mic-btn.listening {
+  background: #B45156;
+  border-color: #B45156;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(180, 81, 86, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(180, 81, 86, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(180, 81, 86, 0); }
+}
+
+.sample-answer-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #DDD8C8;
+}
+
+.sample-answer-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8A6D00;
+  margin: 0 0 6px;
+}
+
+.sample-answer-box p:not(.sample-answer-label) {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1F2A44;
+  margin: 0;
+}

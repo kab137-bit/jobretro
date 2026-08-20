@@ -1,3 +1,4 @@
+import { useSpeechToText } from './useSpeechToText'
 import { supabase } from './supabaseClient'
 import { useState, useEffect } from 'react'
 import './App.css'
@@ -59,6 +60,9 @@ function App() {
   const [followUpAnswer, setFollowUpAnswer] = useState('')
   const [rehearsalLoading, setRehearsalLoading] = useState(false)
   const [rehearsalFeedback, setRehearsalFeedback] = useState(null)
+  const [sampleAnswer, setSampleAnswer] = useState(null)
+  const { isListening, startListening, stopListening } = useSpeechToText()
+  const [listeningFor, setListeningFor] = useState(null)
   const [rehearsalHistory, setRehearsalHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -73,6 +77,7 @@ function App() {
     setRehearsal(null)
     setFollowUpQuestion(null)
     setRehearsalFeedback(null)
+    setSampleAnswer(null)
     setRehearsalAnswer('')
     setFollowUpAnswer('')
     try {
@@ -96,6 +101,7 @@ function App() {
     setRehearsal(null)
     setFollowUpQuestion(null)
     setRehearsalFeedback(null)
+    setSampleAnswer(null)
     setRehearsalAnswer('')
     setFollowUpAnswer('')
     try {
@@ -128,12 +134,29 @@ function App() {
 
         {!followUpQuestion && !rehearsalFeedback && (
           <>
-            <textarea
-              placeholder="이 질문에 어떻게 답하시겠어요?"
-              value={rehearsalAnswer}
-              onChange={(e) => setRehearsalAnswer(e.target.value)}
-              rows={4}
-            />
+            <div className="textarea-with-mic">
+              <textarea
+                placeholder="이 질문에 어떻게 답하시겠어요?"
+                value={rehearsalAnswer}
+                onChange={(e) => setRehearsalAnswer(e.target.value)}
+                rows={4}
+              />
+              <button
+                type="button"
+                className={`mic-btn ${isListening && listeningFor === 'first' ? 'listening' : ''}`}
+                onClick={() => {
+                  if (isListening && listeningFor === 'first') {
+                    stopListening()
+                    setListeningFor(null)
+                  } else {
+                    setListeningFor('first')
+                    startListening((text) => setRehearsalAnswer(text))
+                  }
+                }}
+              >
+                🎤
+              </button>
+            </div>
             <button type="button" onClick={submitFirstAnswer} disabled={rehearsalLoading}>
               {rehearsalLoading ? '면접관이 생각 중...' : '답변 제출'}
             </button>
@@ -143,12 +166,29 @@ function App() {
         {followUpQuestion && !rehearsalFeedback && (
           <div className="followup-block">
             <p className="rehearsal-question followup">Q2. {followUpQuestion}</p>
-            <textarea
-              placeholder="꼬리질문에 답해보세요"
-              value={followUpAnswer}
-              onChange={(e) => setFollowUpAnswer(e.target.value)}
-              rows={4}
-            />
+            <div className="textarea-with-mic">
+              <textarea
+                placeholder="꼬리질문에 답해보세요"
+                value={followUpAnswer}
+                onChange={(e) => setFollowUpAnswer(e.target.value)}
+                rows={4}
+              />
+              <button
+                type="button"
+                className={`mic-btn ${isListening && listeningFor === 'followup' ? 'listening' : ''}`}
+                onClick={() => {
+                  if (isListening && listeningFor === 'followup') {
+                    stopListening()
+                    setListeningFor(null)
+                  } else {
+                    setListeningFor('followup')
+                    startListening((text) => setFollowUpAnswer(text))
+                  }
+                }}
+              >
+                🎤
+              </button>
+            </div>
             <button type="button" onClick={submitFollowUpAnswer} disabled={rehearsalLoading}>
               {rehearsalLoading ? '피드백 준비 중...' : '답변 제출하고 피드백 받기'}
             </button>
@@ -159,6 +199,12 @@ function App() {
           <div className="rehearsal-feedback">
             <p className="feedback-label">AI 피드백</p>
             <p>{rehearsalFeedback}</p>
+            {sampleAnswer && (
+              <div className="sample-answer-box">
+                <p className="sample-answer-label">💡 이렇게 답해볼 수도 있어요</p>
+                <p>{sampleAnswer}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -194,6 +240,7 @@ function App() {
       })
       const data = await res.json()
       setRehearsalFeedback(data.feedback)
+      setSampleAnswer(data.sample_answer)
     } catch (err) {
       alert('피드백 생성 중 오류가 발생했어요')
     } finally {
