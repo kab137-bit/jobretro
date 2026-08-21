@@ -866,7 +866,7 @@ function App() {
           </div>
           <div className="summary-item">
             <span className="summary-number">
-              {applications.filter((a) => a.status === '서류중' || a.status === '면접중').length}
+              {applications.filter((a) => a.status === '서류합격' || a.status === '면접진행중').length}
             </span>
             <span className="summary-label">진행중</span>
           </div>
@@ -1108,9 +1108,9 @@ function App() {
         />
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
           <option value="전체">전체 상태</option>
-          <option value="지원함">지원함</option>
-          <option value="서류중">서류중</option>
-          <option value="면접중">면접중</option>
+          <option value="지원완료">지원완료</option>
+          <option value="서류합격">서류합격</option>
+          <option value="면접진행중">면접진행중</option>
           <option value="최종합격">최종합격</option>
           <option value="불합격">불합격</option>
         </select>
@@ -1201,9 +1201,9 @@ function App() {
                       value={app.status}
                       onChange={(e) => handleStatusChange(app.id, e.target.value)}
                     >
-                      <option value="지원함">지원함</option>
-                      <option value="서류중">서류중</option>
-                      <option value="면접중">면접중</option>
+                      <option value="지원완료">지원완료</option>
+                      <option value="서류합격">서류합격</option>
+                      <option value="면접진행중">면접진행중</option>
                       <option value="최종합격">최종합격</option>
                       <option value="불합격">불합격</option>
                     </select>

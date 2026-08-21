@@ -75,7 +75,7 @@ def create_application(app_data: ApplicationCreate, user_id: str = Depends(get_c
         "next_schedule_label": app_data.next_schedule_label,
         "source": app_data.source,
         "job_post_url": app_data.job_post_url,
-        "status": "지원함",
+        "status": "지원완료",
     }).execute()
     return result.data
 
@@ -159,14 +159,14 @@ SYSTEM_PROMPT = """당신은 취준생의 면접/서류 회고를 구조화하�
 반드시 JSON 형식으로만 응답하세요. 다른 설명은 붙이지 마세요."""
 
 def map_status_from_reflection(stage, result):
-    if result == "합격" and stage == "최종면접":
-        return "최종합격"
     if result == "불합격":
         return "불합격"
+    if result == "합격" and stage == "최종면접":
+        return "최종합격"
+    if result == "합격" and stage == "서류":
+        return "서류합격"
     if stage in ("1차면접", "2차면접", "최종면접"):
-        return "면접중"
-    if stage == "서류":
-        return "서류중"
+        return "면접진행중"
     return None
 
 class ReflectionCreate(BaseModel):

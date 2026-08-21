@@ -1249,12 +1249,12 @@
   white-space: pre-wrap;
 }
 
-.status-지원함, .status-서류중 {
+.status-지원완료 {
   background: #F4F1E6;
   color: var(--muted);
 }
 
-.status-면접중 {
+.status-서류합격, .status-면접진행중 {
   background: var(--progress-bg);
   color: var(--progress);
 }
