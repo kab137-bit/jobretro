@@ -1340,3 +1340,50 @@
   background: #EAF1F8;
   color: #6B8CAE;
 }
+
+.final-prompt-banner {
+  padding: 16px 20px;
+  background: #FBF3D9;
+  border-top: 1px dashed #E8D98A;
+}
+
+.final-prompt-banner p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1F2A44;
+}
+
+.final-prompt-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.final-prompt-actions button {
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.final-prompt-actions button:first-child {
+  background: #1F2A44;
+  color: #fff;
+}
+
+.dismiss-btn {
+  background: none !important;
+  color: #6B7280 !important;
+  border: 1px solid #DDD8C8 !important;
+}
+
+.final-reflection-label {
+  background: #FBF3D9;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #8A6D00;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}

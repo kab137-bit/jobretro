@@ -29,6 +29,9 @@ function App() {
   const [searchText, setSearchText] = useState('')
   const [filterStatus, setFilterStatus] = useState('전체')
   const [showArchived, setShowArchived] = useState(false)
+  const [sortBy, setSortBy] = useState('최신순')
+  const [finalPromptAppId, setFinalPromptAppId] = useState(null)
+  const [isFinalReflection, setIsFinalReflection] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [openFormId, setOpenFormId] = useState(null)
@@ -448,6 +451,9 @@ function App() {
           app.id === applicationId ? { ...app, status: newStatus } : app
         )
       )
+      if (newStatus === '최종합격' || newStatus === '불합격') {
+        setFinalPromptAppId(applicationId)
+      }
     }
   }
 
@@ -552,7 +558,15 @@ function App() {
       setOpenFormId(null)
       setOpenListId(applicationId)
       await fetchReflectionsForApp(applicationId)
-      await fetchApplications()
+
+      const appRes = await authFetch(`${import.meta.env.VITE_API_URL}/applications`)
+      const appData = await appRes.json()
+      setApplications(appData)
+
+      const updatedApp = appData.find((a) => a.id === applicationId)
+      if (updatedApp && (updatedApp.status === '최종합격' || updatedApp.status === '불합격')) {
+        setFinalPromptAppId(applicationId)
+      }
     } catch (err) {
       alert('저장 중 오류가 발생했어요: ' + err.message)
     } finally {
@@ -1100,6 +1114,11 @@ function App() {
           <option value="최종합격">최종합격</option>
           <option value="불합격">불합격</option>
         </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value="최신순">최신순</option>
+          <option value="회사명순">회사명순</option>
+          <option value="마감일순">다음 일정 임박순</option>
+        </select>
         <button
           type="button"
           className={`archive-toggle-btn ${showArchived ? 'active' : ''}`}
@@ -1119,6 +1138,18 @@ function App() {
             const matchesStatus = filterStatus === '전체' || app.status === filterStatus
             const matchesArchive = showArchived ? app.is_archived : !app.is_archived
             return matchesSearch && matchesStatus && matchesArchive
+          })
+          .sort((a, b) => {
+            if (sortBy === '회사명순') {
+              return a.company_name.localeCompare(b.company_name, 'ko')
+            }
+            if (sortBy === '마감일순') {
+              if (!a.next_schedule_date && !b.next_schedule_date) return 0
+              if (!a.next_schedule_date) return 1
+              if (!b.next_schedule_date) return -1
+              return new Date(a.next_schedule_date) - new Date(b.next_schedule_date)
+            }
+            return new Date(b.created_at) - new Date(a.created_at)
           })
           .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
         if (filtered.length === 0) {
@@ -1188,9 +1219,10 @@ function App() {
                     <button
                       type="button"
                       className="reflect-btn"
-                      onClick={() =>
+                      onClick={() => {
                         setOpenFormId(openFormId === app.id ? null : app.id)
-                      }
+                        setIsFinalReflection(false)
+                      }}
                     >
                       회고 작성
                     </button>
@@ -1375,8 +1407,38 @@ function App() {
                   </div>
                 )}
 
+                {finalPromptAppId === app.id && (
+                  <div className="final-prompt-banner">
+                    <p>
+                      {app.status === '최종합격' ? '🎉 최종합격을 축하해요!' : '이번 지원 과정도 수고하셨어요.'}
+                      {' '}이 지원 과정 전체를 돌아보는 회고를 남겨보시겠어요?
+                    </p>
+                    <div className="final-prompt-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenFormId(app.id)
+                          setIsFinalReflection(true)
+                          setFinalPromptAppId(null)
+                        }}
+                      >
+                        회고 남기기
+                      </button>
+                      <button type="button" className="dismiss-btn" onClick={() => setFinalPromptAppId(null)}>
+                        나중에
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              
                 {openFormId === app.id && (
                   <div className="reflection-form">
+                    {isFinalReflection && (
+                      <p className="final-reflection-label">
+                        📝 이 지원 과정 전체를 돌아보는 종합 회고예요. 처음 지원부터 결과까지, 가장 기억에 남는 순간이나 배운 점을 자유롭게 적어보세요.
+                      </p>
+                    )}
                     <div className="mood-picker">
                       {['😊', '😐', '😞'].map((emoji) => (
                         <button
@@ -1390,14 +1452,21 @@ function App() {
                       ))}
                     </div>
                     <textarea
-                      placeholder="오늘 어떤 전형을 봤고, 어떻게 느꼈는지 편하게 적어주세요"
+                      placeholder={
+                        isFinalReflection
+                          ? "이번 지원 과정 전체에서 느낀 점, 배운 점을 자유롭게 적어보세요"
+                          : "오늘 어떤 전형을 봤고, 어떻게 느꼈는지 편하게 적어주세요"
+                      }
                       value={reflectionText}
                       onChange={(e) => setReflectionText(e.target.value)}
-                      rows={3}
+                      rows={isFinalReflection ? 5 : 3}
                     />
                     <button
                       type="button"
-                      onClick={() => handleAddReflection(app.id)}
+                      onClick={() => {
+                        handleAddReflection(app.id)
+                        setIsFinalReflection(false)
+                      }}
                       disabled={reflecting}
                     >
                       {reflecting ? 'AI가 정리하는 중...' : '회고 저장'}
