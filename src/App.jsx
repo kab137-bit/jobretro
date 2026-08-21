@@ -50,6 +50,7 @@ function App() {
   const [insightAppId, setInsightAppId] = useState(null)
   const [openMenuId, setOpenMenuId] = useState(null)
   const [rehearsalContext, setRehearsalContext] = useState(null)
+  const [selectedStyle, setSelectedStyle] = useState('친근형')
   const [positionInsight, setPositionInsight] = useState(null)
   const [positionInsightLoading, setPositionInsightLoading] = useState(false)
   const [positionInsightAppId, setPositionInsightAppId] = useState(null)
@@ -86,7 +87,7 @@ function App() {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/rehearsal/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag }),
+        body: JSON.stringify({ tag, style: selectedStyle }),
       })
       const data = await res.json()
       setRehearsal(data)
@@ -132,6 +133,9 @@ function App() {
               <p className="source-quote" key={i}>"{text}"</p>
             ))}
           </div>
+        )}
+        {rehearsal.style && (
+          <span className={`style-badge style-badge-${rehearsal.style}`}>{rehearsal.style} 면접관</span>
         )}
         <p className="rehearsal-question">Q. {rehearsal.question}</p>
 
@@ -685,8 +689,18 @@ function App() {
     }
   }
 
-  async function handleLogout() {
+    async function handleLogout() {
     await supabase.auth.signOut()
+    setApplications([])
+    setReflectionsByApp({})
+    setReport(null)
+    setRehearsal(null)
+    setRehearsalFeedback(null)
+    setSampleAnswer(null)
+    setCompanyInsight(null)
+    setPositionInsight(null)
+    setInsightAppId(null)
+    setPositionInsightAppId(null)
   }
 
   if (authLoading) {
@@ -936,6 +950,34 @@ function App() {
                       )}
                     </div>
                   )}
+                  <div className="style-picker">
+                    <p className="style-picker-label">면접관 스타일</p>
+                    <div className="style-buttons">
+                      {['친근형', '압박형', '논리형'].map((style) => (
+                        <button
+                          key={style}
+                          type="button"
+                          className={`style-btn ${selectedStyle === style ? 'selected' : ''}`}
+                          onClick={() => setSelectedStyle(style)}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="tag-buttons">
+                    {Object.keys(report.stats.tag_counts).map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="tag-practice-btn"
+                        onClick={() => startRehearsal(tag)}
+                      >
+                        {tag} 연습하기
+                      </button>
+                    ))}
+                  </div>
                   <div className="tag-buttons">
                     {Object.keys(report.stats.tag_counts).map((tag) => (
                       <button
@@ -1124,7 +1166,7 @@ function App() {
                   )}
                   <div className="card-actions">
                     <select
-                      className="status-tag status-select"
+                      className={`status-tag status-select status-${app.status}`}
                       value={app.status}
                       onChange={(e) => handleStatusChange(app.id, e.target.value)}
                     >

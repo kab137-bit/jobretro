@@ -159,12 +159,14 @@ SYSTEM_PROMPT = """당신은 취준생의 면접/서류 회고를 구조화하�
 반드시 JSON 형식으로만 응답하세요. 다른 설명은 붙이지 마세요."""
 
 def map_status_from_reflection(stage, result):
+    if result == "합격" and stage == "최종면접":
+        return "최종합격"
     if result == "불합격":
         return "불합격"
-    if stage == "서류" and result == "합격":
+    if stage in ("1차면접", "2차면접", "최종면접"):
         return "면접중"
-    if stage == "최종면접" and result == "합격":
-        return "최종합격"
+    if stage == "서류":
+        return "서류중"
     return None
 
 class ReflectionCreate(BaseModel):
@@ -384,6 +386,14 @@ def get_report(user_id: str = Depends(get_current_user)):
 
 class RehearsalGenerate(BaseModel):
     tag: str
+    style: str = "친근형"
+
+
+INTERVIEWER_STYLES = {
+    "친근형": "편안하고 따뜻한 어조로, 지원자가 긴장하지 않도록 배려하며 질문하는 면접관입니다.",
+    "압박형": "날카롭고 도전적인 어조로, 지원자의 답변에서 허점을 정확히 짚어내며 몰아붙이듯 질문하는 면접관입니다.",
+    "논리형": "차분하고 분석적인 어조로, 답변의 논리적 일관성과 근거를 꼼꼼히 따지며 질문하는 면접관입니다.",
+}
 
 
 @app.post("/rehearsal/generate")
@@ -400,7 +410,9 @@ def generate_rehearsal_question(data: RehearsalGenerate, user_id: str = Depends(
     source_texts = [r["raw_text"] for r in related if r.get("raw_text")]
     examples = "\n".join([f"- {t}" for t in source_texts])
 
-    prompt = f"""당신은 면접관입니다. 지원자가 과거 '{data.tag}' 관련 질문에서 아래와 같은 아쉬움을 스스로 남겼습니다.
+    style_desc = INTERVIEWER_STYLES.get(data.style, INTERVIEWER_STYLES["친근형"])
+
+    prompt = f"""당신은 {style_desc} 지원자가 과거 '{data.tag}' 관련 질문에서 아래와 같은 아쉬움을 스스로 남겼습니다.
 
 [지원자가 남긴 회고]
 {examples if examples else "(참고할 회고가 없어 일반적인 질문으로 작성)"}
@@ -423,6 +435,7 @@ def generate_rehearsal_question(data: RehearsalGenerate, user_id: str = Depends(
         "user_id": user_id,
         "tag": data.tag,
         "question": question,
+        "style": data.style,
     }).execute()
 
     response_data = result.data[0]
@@ -438,7 +451,9 @@ class RehearsalFollowup(BaseModel):
 def generate_followup(data: RehearsalFollowup, user_id: str = Depends(get_current_user)):
     rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
 
-    prompt = f"""당신은 면접관입니다. 아래는 방금 지원자에게 한 질문과 그 답변입니다.
+    style_desc = INTERVIEWER_STYLES.get(rehearsal.get("style", "친근형"), INTERVIEWER_STYLES["친근형"])
+
+    prompt = f"""당신은 {style_desc} 아래는 방금 지원자에게 한 질문과 그 답변입니다.
 
 질문: {rehearsal['question']}
 답변: {data.answer}
@@ -474,7 +489,9 @@ class RehearsalFinal(BaseModel):
 def give_rehearsal_feedback(data: RehearsalFinal, user_id: str = Depends(get_current_user)):
     rehearsal = supabase.table("rehearsals").select("*").eq("id", data.rehearsal_id).execute().data[0]
 
-    prompt = f"""아래는 모의 면접의 전체 대화입니다.
+    style_desc = INTERVIEWER_STYLES.get(rehearsal.get("style", "친근형"), INTERVIEWER_STYLES["친근형"])
+
+    prompt = f"""당신은 {style_desc} 아래는 모의 면접의 전체 대화입니다.
 
 질문 1: {rehearsal['question']}
 답변 1: {rehearsal['answer']}
