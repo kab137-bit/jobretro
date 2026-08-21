@@ -1,3 +1,7 @@
+from fastapi import UploadFile, File, Form
+from pypdf import PdfReader
+from docx import Document
+import io
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -796,6 +800,86 @@ def get_rehearsal_history(user_id: str = Depends(get_current_user)):
         .select("*")
         .eq("user_id", user_id)
         .not_.is_("feedback", "null")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data
+
+def extract_text_from_file(filename: str, content: bytes) -> str:
+    if filename.lower().endswith(".pdf"):
+        reader = PdfReader(io.BytesIO(content))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    elif filename.lower().endswith(".docx"):
+        doc = Document(io.BytesIO(content))
+        return "\n".join(p.text for p in doc.paragraphs)
+    else:
+        raise HTTPException(status_code=400, detail="PDF 또는 DOCX 파일만 지원해요")
+
+
+@app.post("/resume/analyze")
+async def analyze_resume(
+    application_id: str = Form(...),
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
+):
+    content = await file.read()
+    text = extract_text_from_file(file.filename, content)
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="파일에서 텍스트를 추출하지 못했어요")
+
+    app_data = supabase.table("applications").select("company_name, position").eq("id", application_id).execute().data
+    company_name = app_data[0]["company_name"] if app_data else "지원 회사"
+    position = app_data[0].get("position") if app_data else None
+
+    prompt = f"""아래는 '{company_name}'{f" {position} 직무" if position else ""}에 지원하며 작성한 자기소개서/이력서 원문입니다.
+
+[원문]
+{text[:6000]}
+
+이 자소서를 아래 4가지 관점에서 분석해주세요:
+
+1. motivation: 지원동기가 얼마나 구체적이고 설득력 있는지 (2문장)
+2. specificity: 경험 서술이 구체적 사례와 수치로 뒷받침되는지 (2문장)
+3. relevance: 직무와의 연관성이 명확한지 (2문장)
+4. suggestions: 개선하면 좋을 구체적 행동 2~3개 (짧은 문구 배열)
+
+건설적이고 친절한 어조로 작성하세요. 마크다운 문법은 쓰지 마세요.
+반드시 아래와 정확히 같은 키 이름의 JSON으로만 응답하세요.
+
+{{"motivation": "...", "specificity": "...", "relevance": "...", "suggestions": ["...", "..."]}}"""
+
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={GEMINI_API_KEY}",
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="분석 실패")
+
+    ai_result = response.json()
+    parsed = json.loads(ai_result["candidates"][0]["content"]["parts"][0]["text"])
+
+    result = supabase.table("resume_analyses").insert({
+        "application_id": application_id,
+        "user_id": user_id,
+        "filename": file.filename,
+        "analysis": parsed,
+    }).execute()
+
+    return result.data[0]
+
+
+@app.get("/resume/history/{application_id}")
+def get_resume_history(application_id: str, user_id: str = Depends(get_current_user)):
+    result = (
+        supabase.table("resume_analyses")
+        .select("*")
+        .eq("application_id", application_id)
+        .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()
     )

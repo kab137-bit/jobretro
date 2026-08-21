@@ -32,6 +32,11 @@ function App() {
   const [sortBy, setSortBy] = useState('최신순')
   const [finalPromptAppId, setFinalPromptAppId] = useState(null)
   const [isFinalReflection, setIsFinalReflection] = useState(false)
+  const [resumeAnalysisAppId, setResumeAnalysisAppId] = useState(null)
+  const [resumeAnalyzing, setResumeAnalyzing] = useState(false)
+  const [resumeResult, setResumeResult] = useState(null)
+  const [resumeHistory, setResumeHistory] = useState([])
+  const [showResumeHistory, setShowResumeHistory] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [openFormId, setOpenFormId] = useState(null)
@@ -71,6 +76,7 @@ function App() {
   const [rehearsalHistory, setRehearsalHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null)
 
   function toggleCheck(index) {
     setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -398,6 +404,50 @@ function App() {
       alert('링크 분석 중 오류가 발생했어요')
     } finally {
       setParsingUrl(false)
+    }
+  }
+
+    async function handleResumeUpload(applicationId, file) {
+    if (!file) return
+    setResumeAnalyzing(true)
+    setResumeResult(null)
+    try {
+      const formData = new FormData()
+      formData.append('application_id', applicationId)
+      formData.append('file', file)
+
+      const token = session?.access_token
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/resume/analyze`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+
+      if (!res.ok) throw new Error('분석 실패')
+
+      const data = await res.json()
+      setResumeResult(data)
+    } catch (err) {
+      alert('자소서 분석 중 오류가 발생했어요: ' + err.message)
+    } finally {
+      setResumeAnalyzing(false)
+    }
+  }
+
+  async function toggleResumeHistory(applicationId) {
+    if (resumeAnalysisAppId === applicationId && showResumeHistory) {
+      setShowResumeHistory(false)
+      return
+    }
+    setResumeAnalysisAppId(applicationId)
+    setResumeResult(null)
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/resume/history/${applicationId}`)
+      const data = await res.json()
+      setResumeHistory(data)
+      setShowResumeHistory(true)
+    } catch (err) {
+      alert('히스토리를 불러오는 중 오류가 발생했어요')
     }
   }
 
@@ -959,6 +1009,24 @@ function App() {
                             <span className="mini-tag">{h.tag}</span>
                             <p className="history-question">Q. {h.question}</p>
                             <p className="history-feedback">{h.feedback}</p>
+                            <button
+                              type="button"
+                              className="toggle-my-answers-btn"
+                              onClick={() =>
+                                setExpandedHistoryId(expandedHistoryId === h.id ? null : h.id)
+                              }
+                            >
+                              {expandedHistoryId === h.id ? '내 답변 숨기기 ▲' : '내 답변 보기 ▼'}
+                            </button>
+                            {expandedHistoryId === h.id && (
+                              <div className="history-answers">
+                                {h.answer && <p><strong>내 답변:</strong> {h.answer}</p>}
+                                {h.follow_up_question && (
+                                  <p className="history-question">Q2. {h.follow_up_question}</p>
+                                )}
+                                {h.follow_up_answer && <p><strong>내 답변:</strong> {h.follow_up_answer}</p>}
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -980,18 +1048,6 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="tag-buttons">
-                    {Object.keys(report.stats.tag_counts).map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        className="tag-practice-btn"
-                        onClick={() => startRehearsal(tag)}
-                      >
-                        {tag} 연습하기
-                      </button>
-                    ))}
-                  </div>
                   <div className="tag-buttons">
                     {Object.keys(report.stats.tag_counts).map((tag) => (
                       <button
@@ -1266,6 +1322,14 @@ function App() {
                           이 직무 지원자 인사이트
                         </button>
                       )}
+                      
+                      <button
+                        type="button"
+                        className="text-btn"
+                        onClick={() => toggleResumeHistory(app.id)}
+                      >
+                        자소서 분석
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1403,6 +1467,63 @@ function App() {
                       </>
                     ) : (
                       <p className="insight-empty">{positionInsight?.message}</p>
+                    )}
+                  </div>
+                )}
+
+                {resumeAnalysisAppId === app.id && showResumeHistory && (
+                  <div className="resume-analysis-box">
+                    <div className="resume-upload-row">
+                      <label className="resume-upload-btn">
+                        {resumeAnalyzing ? '분석 중...' : '📄 자소서 파일 업로드 (PDF/DOCX)'}
+                        <input
+                          type="file"
+                          accept=".pdf,.docx"
+                          hidden
+                          disabled={resumeAnalyzing}
+                          onChange={(e) => handleResumeUpload(app.id, e.target.files[0])}
+                        />
+                      </label>
+                    </div>
+
+                    {resumeResult && (
+                      <div className="resume-result">
+                        <p className="resume-filename">📎 {resumeResult.filename}</p>
+                        <div className="resume-section">
+                          <p className="resume-label">지원동기</p>
+                          <p>{resumeResult.analysis.motivation}</p>
+                        </div>
+                        <div className="resume-section">
+                          <p className="resume-label">구체성</p>
+                          <p>{resumeResult.analysis.specificity}</p>
+                        </div>
+                        <div className="resume-section">
+                          <p className="resume-label">직무 연관성</p>
+                          <p>{resumeResult.analysis.relevance}</p>
+                        </div>
+                        {resumeResult.analysis.suggestions && (
+                          <div className="resume-section">
+                            <p className="resume-label">개선 제안</p>
+                            <ul>
+                              {resumeResult.analysis.suggestions.map((s, i) => (
+                                <li key={i}>{s}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!resumeResult && resumeHistory.length > 0 && (
+                      <div className="resume-history-list">
+                        <p className="resume-label">지난 분석 기록</p>
+                        {resumeHistory.map((h) => (
+                          <div key={h.id} className="resume-history-item">
+                            📎 {h.filename}
+                            <p className="resume-history-preview">{h.analysis.motivation}</p>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}

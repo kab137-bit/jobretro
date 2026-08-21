@@ -1387,3 +1387,98 @@
   line-height: 1.5;
   margin: 0 0 10px;
 }
+
+.resume-analysis-box {
+  padding: 16px 20px;
+  border-top: 1px dashed #ECE9DE;
+  background: #FCFBF7;
+}
+
+.resume-upload-btn {
+  display: inline-block;
+  background: #1F2A44;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.resume-result {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid #ECE9DE;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.resume-filename {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0 0 10px;
+}
+
+.resume-section {
+  margin-bottom: 10px;
+}
+
+.resume-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8A6D00;
+  margin: 0 0 3px;
+}
+
+.resume-section p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.resume-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.resume-section li {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.resume-history-list {
+  margin-top: 14px;
+}
+
+.resume-history-item {
+  background: #fff;
+  border: 1px solid #ECE9DE;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.resume-history-preview {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #1F2A44;
+}
+
+.add-form button[type="submit"] {
+  display: block;
+  margin-left: auto;
+}
+
+.history-answers {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid #DDD8C8;
+}
+
+.history-answers p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 4px 0;
+  color: #1F2A44;
+}
